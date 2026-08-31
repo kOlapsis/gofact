@@ -15,58 +15,58 @@ import (
 // (variables GOFACT_*, cf. seller.go) : le JSON ne porte que ce qui varie d'une
 // facture à l'autre, et peut surcharger n'importe lequel de ces défauts.
 type Spec struct {
-	Number       string     `json:"number"`           // ex. "2026011" (sans préfixe)
-	Type         string     `json:"type"`             // "invoice" (défaut) | "credit_note"
-	IssueDate    string     `json:"issue_date"`       // ISO "2026-06-29"
-	DueDate      string     `json:"due_date"`         // ISO ; vide ⇒ "À réception" ⇒ = émission
-	DeliveryDate string     `json:"delivery_date"`    // ISO ; vide ⇒ omis
-	BuyerRef     string     `json:"buyer_reference"`  // BT-10 ; optionnel
-	BusinessProc string     `json:"business_process"` // BT-23 ; vide ⇒ défaut profil réforme FR
-	Currency     string     `json:"currency"`         // défaut EUR
+	Number       string     `json:"number,omitempty"`           // ex. "2026011" (sans préfixe)
+	Type         string     `json:"type,omitempty"`             // "invoice" (défaut) | "credit_note"
+	IssueDate    string     `json:"issue_date,omitempty"`       // ISO "2026-06-29"
+	DueDate      string     `json:"due_date,omitempty"`         // ISO ; vide ⇒ "À réception" ⇒ = émission
+	DeliveryDate string     `json:"delivery_date,omitempty"`    // ISO ; vide ⇒ omis
+	BuyerRef     string     `json:"buyer_reference,omitempty"`  // BT-10 ; optionnel
+	BusinessProc string     `json:"business_process,omitempty"` // BT-23 ; vide ⇒ défaut profil réforme FR
+	Currency     string     `json:"currency,omitempty"`         // défaut EUR
 	Buyer        PartySpec  `json:"buyer"`
 	Lines        []LineSpec `json:"lines"`
-	VAT          *VATSpec   `json:"vat"`    // défaut : franchise 293 B (exonéré)
-	Seller       *PartySpec `json:"seller"` // override ; défaut GOFACT_SELLER_*
-	IBAN         string     `json:"iban"`   // override ; défaut GOFACT_PAYEE_IBAN
-	Notes        []NoteSpec `json:"notes"`  // override ; défaut : mentions légales FR
+	VAT          *VATSpec   `json:"vat,omitempty"`    // défaut : franchise 293 B (exonéré)
+	Seller       *PartySpec `json:"seller,omitempty"` // override ; défaut GOFACT_SELLER_*
+	IBAN         string     `json:"iban,omitempty"`   // override ; défaut GOFACT_PAYEE_IBAN
+	Notes        []NoteSpec `json:"notes,omitempty"`  // override ; défaut : mentions légales FR
 }
 
 // NoteSpec est une mention libre (BT-22) avec son code sujet (BT-21).
 type NoteSpec struct {
 	Content     string `json:"content"`
-	SubjectCode string `json:"subject_code"`
+	SubjectCode string `json:"subject_code,omitempty"`
 }
 
 // PartySpec décrit une partie. SIRET (14) prime pour dériver le SIREN (9) si SIREN absent.
 type PartySpec struct {
 	Name        string `json:"name"`
-	SIREN       string `json:"siren"`
-	SIRET       string `json:"siret"`
-	VATNumber   string `json:"vat_number"`
-	Email       string `json:"email"`
-	EAddr       string `json:"electronic_address"`        // BT-34/BT-49 adresse de routage PDP
-	EAddrSchema string `json:"electronic_address_scheme"` // ex. "0225" (SIRET FR)
-	Address     string `json:"address"`
-	PostalCode  string `json:"postal_code"`
-	City        string `json:"city"`
-	Country     string `json:"country_code"`
+	SIREN       string `json:"siren,omitempty"`
+	SIRET       string `json:"siret,omitempty"`
+	VATNumber   string `json:"vat_number,omitempty"`
+	Email       string `json:"email,omitempty"`
+	EAddr       string `json:"electronic_address,omitempty"`        // BT-34/BT-49 adresse de routage PDP
+	EAddrSchema string `json:"electronic_address_scheme,omitempty"` // ex. "0225" (SIRET FR)
+	Address     string `json:"address,omitempty"`
+	PostalCode  string `json:"postal_code,omitempty"`
+	City        string `json:"city,omitempty"`
+	Country     string `json:"country_code,omitempty"`
 }
 
 // LineSpec est une ligne de prestation. Quantity est une chaîne décimale ("9.00").
 type LineSpec struct {
 	Name      string `json:"name"`
-	Unit      string `json:"unit"`                // "day" | "unit" (défaut)
-	Quantity  string `json:"quantity"`            // défaut "1.00"
-	UnitPrice int64  `json:"unit_price_ht_cents"` // centimes
-	Amount    int64  `json:"amount_ht_cents"`     // centimes ; 0 ⇒ = UnitPrice
+	Unit      string `json:"unit,omitempty"`                // "day" | "unit" (défaut)
+	Quantity  string `json:"quantity,omitempty"`            // défaut "1.00"
+	UnitPrice int64  `json:"unit_price_ht_cents,omitempty"` // centimes
+	Amount    int64  `json:"amount_ht_cents,omitempty"`     // centimes ; 0 ⇒ = UnitPrice
 }
 
 // VATSpec porte le régime de TVA. Par défaut exonéré (franchise 293 B).
 type VATSpec struct {
-	Exempt        bool   `json:"exempt"`
-	Mention       string `json:"mention"`
-	ExemptionCode string `json:"exemption_code"`
-	RatePct       string `json:"rate_pct"` // requis si Exempt == false (ex. "20.00")
+	Exempt        bool   `json:"exempt,omitempty"`
+	Mention       string `json:"mention,omitempty"`
+	ExemptionCode string `json:"exemption_code,omitempty"`
+	RatePct       string `json:"rate_pct,omitempty"` // requis si Exempt == false (ex. "20.00")
 }
 
 // defaultNotes sont les mentions légales obligatoires en France (BR-FR-05) :
@@ -91,6 +91,16 @@ func LoadSpec(path string) (Spec, error) {
 		return s, fmt.Errorf("facturx: JSON spec invalide: %w", err)
 	}
 	return s, nil
+}
+
+// MarshalSpec sérialise une spec en JSON indenté — la forme sidecar écrite à
+// côté du HTML de chaque facture.
+func MarshalSpec(s Spec) ([]byte, error) {
+	raw, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("facturx: sérialisation spec: %w", err)
+	}
+	return append(raw, '\n'), nil
 }
 
 // siren9 renvoie un SIREN (9 chiffres) à partir d'un SIREN ou d'un SIRET, en

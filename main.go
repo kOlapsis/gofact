@@ -40,6 +40,9 @@ func main() {
 		case "org":
 			runOrg(os.Args[2:])
 			return
+		case "mcp":
+			runMCP(os.Args[2:])
+			return
 		}
 	}
 	runGenerate(os.Args[1:])

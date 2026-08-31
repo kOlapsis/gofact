@@ -57,6 +57,16 @@ func (o *Org) NextNumber(now time.Time) (string, error) {
 // Allocate attribue le prochain numéro et inscrit la facture au registre, en une
 // seule opération sous verrou. Renvoie le numéro attribué.
 func (o *Org) Allocate(now time.Time, e RegistryEntry) (string, error) {
+	return o.AllocateWith(now, func(string) (RegistryEntry, error) { return e, nil })
+}
+
+// AllocateWith attribue le prochain numéro en exécutant work SOUS LE VERROU :
+// work reçoit le numéro et produit l'entrée de registre — typiquement après
+// avoir généré la facture elle-même. Si work échoue, rien n'est persisté : ni
+// compteur, ni entrée, ni fichier de l'appelant s'il fait son ménage. C'est la
+// forme transactionnelle complète — un échec de génération ne laisse pas de
+// trou dans la séquence.
+func (o *Org) AllocateWith(now time.Time, work func(number string) (RegistryEntry, error)) (string, error) {
 	unlock, err := o.lock()
 	if err != nil {
 		return "", err
@@ -71,6 +81,10 @@ func (o *Org) Allocate(now time.Time, e RegistryEntry) (string, error) {
 	next := reg.counters[year] + 1
 	number := fmt.Sprintf("%s%03d", year, next)
 
+	e, err := work(number)
+	if err != nil {
+		return "", err
+	}
 	e.Numero = number
 	if e.DateEmission == "" {
 		e.DateEmission = now.Format("2006-01-02")
@@ -90,6 +104,24 @@ func (o *Org) Allocate(now time.Time, e RegistryEntry) (string, error) {
 		return "", err
 	}
 	return number, nil
+}
+
+// Invoices renvoie les entrées du registre, de la plus récente à la plus
+// ancienne, sans présumer de leur forme : le registre peut contenir des entrées
+// antérieures à gofact avec leurs propres champs.
+func (o *Org) Invoices() ([]map[string]any, error) {
+	reg, err := o.readRegistry()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]map[string]any, 0, len(reg.invoices))
+	for i := len(reg.invoices) - 1; i >= 0; i-- {
+		var m map[string]any
+		if err := json.Unmarshal(reg.invoices[i], &m); err == nil {
+			out = append(out, m)
+		}
+	}
+	return out, nil
 }
 
 // Journal ajoute un événement horodaté à la piste d'audit.

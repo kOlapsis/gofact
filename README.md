@@ -92,7 +92,31 @@ committer.
 Sans vendeur configuré, `gofact` **échoue explicitement** plutôt que d'émettre une
 facture incomplète. Chaque valeur reste surchargeable facture par facture via le JSON.
 
-## Usage
+## Serveur MCP — parler à son IA pour facturer
+
+`gofact mcp` expose la facturation en **serveur MCP local (stdio)** : depuis
+Claude Desktop, Claude Code, LM Studio ou tout client MCP, dire « fais-moi une
+facture pour ACME, 2 jours à 600 € » suffit. L'IA est l'interface ; gofact
+garantit la numérotation (séquence légale continue, attribution verrouillée et
+transactionnelle), la conformité EN 16931 et l'archivage — en local.
+
+```sh
+# Enregistrer dans Claude Code, par exemple :
+claude mcp add gofact -- /chemin/vers/gofact mcp
+```
+
+Outils : `list_organizations`, `get_organization`, `init_organization`,
+`search_client`, `get_invoice_template`, `preview_next_number`, `list_invoices`,
+`create_invoice`, `send_invoice` (seul outil destructif — dépôt PDP,
+confirmation explicite exigée), `get_invoice_status`. Prompt : `nouvelle-facture`.
+
+Une **organisation** (entité émettrice) = un dossier autonome : identité dans
+son `.env`, registre `numerotation.json`, journal d'audit `journal.ndjson`,
+modèle de facture figé à la première émission, et les factures elles-mêmes.
+Gestion au CLI : `gofact org list | init | show`. Aucun secret ne sort jamais
+d'une réponse d'outil.
+
+## Usage (CLI)
 
 ```sh
 # Le plus simple : -data et -out déduits du nom du HTML
