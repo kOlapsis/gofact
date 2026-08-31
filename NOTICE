@@ -1,0 +1,15 @@
+gofact — Copyright (C) 2026 Benjamin Touchard
+Licence : GNU AGPL v3 ou ultérieure (voir LICENSE).
+
+Dépendances directes embarquées dans le binaire :
+
+  github.com/chromedp/chromedp            MIT
+  github.com/chromedp/cdproto             MIT
+  github.com/pdfcpu/pdfcpu                Apache-2.0
+  github.com/modelcontextprotocol/go-sdk  MIT
+
+Outils invoqués sans être distribués :
+
+  Chrome / Edge / Brave / Chromium — rendu HTML→PDF (installés par l'utilisateur)
+  Mustang (mustangproject.org) — oracle de validation en intégration continue
+  uniquement ; jamais téléchargé ni exécuté chez un utilisateur.

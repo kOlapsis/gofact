@@ -8,6 +8,20 @@
   },
   "homepage": "https://github.com/kolapsis/gofact",
   "repository": "https://github.com/kolapsis/gofact",
-  "license": "MIT",
-  "keywords": ["factur-x", "facture", "invoice", "pdf-a3", "en16931", "peppol", "france"]
+  "license": "AGPL-3.0-or-later",
+  "keywords": [
+    "factur-x",
+    "facture",
+    "invoice",
+    "pdf-a3",
+    "en16931",
+    "peppol",
+    "france"
+  ],
+  "mcpServers": {
+    "gofact": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/mcp-launcher.sh",
+      "args": []
+    }
+  }
 }

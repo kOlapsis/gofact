@@ -5,9 +5,11 @@ import (
 	"strings"
 )
 
-// Vendeur et coordonnées de règlement : lus dans l'environnement, jamais codés
-// en dur. Un fichier .env (non versionné) est le support habituel — voir
-// .env.example. Sans ces variables, le JSON de facture doit porter un bloc
+// Vendeur et coordonnées de règlement : jamais codés en dur. Ils viennent d'une
+// Config, résolue soit depuis l'environnement du processus (cas du CLI), soit
+// depuis n'importe quelle autre source de clés — typiquement le .env d'un
+// dossier d'organisation, quand un même processus sert plusieurs entités
+// émettrices. Sans configuration, le JSON de facture doit porter un bloc
 // "seller" complet, faute de quoi la génération échoue.
 const (
 	envSellerName       = "GOFACT_SELLER_NAME"
@@ -30,40 +32,49 @@ const (
 
 // Régime de TVA par défaut : franchise en base (art. 293 B du CGI), le cas le
 // plus courant pour un indépendant français. Ce sont des mentions légales
-// génériques, surchargeables par l'environnement ou par le JSON.
+// génériques, surchargeables par la configuration ou par le JSON.
 const (
 	fallbackVATMention = "TVA non applicable, art. 293 B du CGI"
 	fallbackVATExCode  = "VATEX-FR-FRANCHISE"
 )
 
 // defaultEAddrScheme est le schéma d'adresse électronique de routage utilisé
-// quand le vendeur n'en déclare pas : 0225 = SIREN français (Peppol).
+// quand le vendeur n'en déclare pas : 0225 = SIREN français (réforme FR).
 const defaultEAddrScheme = "0225"
 
-func env(key string) string { return strings.TrimSpace(os.Getenv(key)) }
-
-func envOr(key, fallback string) string {
-	if v := env(key); v != "" {
-		return v
-	}
-	return fallback
+// Config porte les défauts d'une entité émettrice : identité du vendeur, compte
+// de règlement et mentions d'exonération. Le JSON de chaque facture peut
+// surcharger n'importe lequel de ces champs.
+type Config struct {
+	Seller              PartySpec
+	IBAN                string // BT-84 ; vide ⇒ omis (mais BR-50 exige un compte pour un virement)
+	VATExemptMention    string // BT-120 par défaut si exonéré
+	VATExemptReasonCode string // BT-121 par défaut si exonéré
 }
 
-// sellerFromEnv construit le vendeur par défaut depuis l'environnement. Le
-// résultat a un Name vide si aucune identité n'est configurée.
-func sellerFromEnv() PartySpec {
+// ConfigFrom résout une Config depuis une source de clés arbitraire. lookup
+// renvoie "" pour une clé absente.
+func ConfigFrom(lookup func(key string) string) Config {
+	get := func(key string) string { return strings.TrimSpace(lookup(key)) }
+	getOr := func(key, fallback string) string {
+		if v := get(key); v != "" {
+			return v
+		}
+		return fallback
+	}
+
 	p := PartySpec{
-		Name:        env(envSellerName),
-		SIREN:       env(envSellerSIREN),
-		SIRET:       env(envSellerSIRET),
-		VATNumber:   env(envSellerVATNumber),
-		Email:       env(envSellerEmail),
-		Address:     env(envSellerAddress),
-		PostalCode:  env(envSellerPostalCode),
-		City:        env(envSellerCity),
-		Country:     envOr(envSellerCountry, "FR"),
-		EAddr:       env(envSellerEAddr),
-		EAddrSchema: env(envSellerEAddrSch),
+		Name:        get(envSellerName),
+		SIREN:       get(envSellerSIREN),
+		SIRET:       get(envSellerSIRET),
+		VATNumber:   get(envSellerVATNumber),
+		Email:       get(envSellerEmail),
+		Address:     get(envSellerAddress),
+		PostalCode:  get(envSellerPostalCode),
+		City:        get(envSellerCity),
+		Country:     getOr(envSellerCountry, "FR"),
+		EAddr:       get(envSellerEAddr),
+		EAddrSchema: get(envSellerEAddrSch),
 	}
 	// Sans adresse de routage explicite, une PDP française route sur le SIREN
 	// (BT-34, scheme 0225) plutôt que sur l'e-mail, qui n'est pas adressable.
@@ -75,10 +86,17 @@ func sellerFromEnv() PartySpec {
 			}
 		}
 	}
-	return p
+
+	return Config{
+		Seller:              p,
+		IBAN:                strings.ReplaceAll(get(envPayeeIBAN), " ", ""),
+		VATExemptMention:    getOr(envVATExemptMention, fallbackVATMention),
+		VATExemptReasonCode: getOr(envVATExemptCode, fallbackVATExCode),
+	}
 }
 
-// defaultIBAN renvoie l'IBAN de règlement (BT-84) configuré, ou "" si aucun.
-func defaultIBAN() string {
-	return strings.ReplaceAll(env(envPayeeIBAN), " ", "")
+// ConfigFromEnv résout la Config depuis l'environnement du processus — le
+// comportement historique du CLI.
+func ConfigFromEnv() Config {
+	return ConfigFrom(os.Getenv)
 }

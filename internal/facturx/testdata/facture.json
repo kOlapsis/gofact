@@ -1,0 +1,18 @@
+{
+  "number": "2026001",
+  "issue_date": "2026-08-31",
+  "buyer": {
+    "name": "ACME SAS",
+    "siret": "55208131700015",
+    "email": "compta@acme.example",
+    "electronic_address": "552081317",
+    "electronic_address_scheme": "0225",
+    "address": "1 rue de la Paix",
+    "postal_code": "75002",
+    "city": "Paris"
+  },
+  "lines": [
+    { "name": "Développement backend", "unit": "day", "quantity": "2.00",
+      "unit_price_ht_cents": 60000, "amount_ht_cents": 120000 }
+  ]
+}

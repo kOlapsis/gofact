@@ -11,25 +11,50 @@ Code** avec le skill `creer-facture`.
 ## Chaîne
 
 ```
-JSON  ──gofact───────────▶  factur-x.xml (CII EN 16931)
-HTML  ──Chrome headless──▶  PDF          (rendu identique au Ctrl+P, arrière-plans inclus)
-PDF + XML ──gs/zugferd.ps▶  Factur-X     (PDF/A-3 + embarquement VERBATIM du XML)
-Factur-X  ──Mustang──────▶  validation   (EN 16931 + PDF/A, désactivable)
+JSON  ──règles EN 16931──▶  refus si non conforme (avant toute production)
+      ──gofact──────────▶  factur-x.xml (CII EN 16931)
+HTML  ──Chrome headless─▶  PDF          (rendu identique au Ctrl+P, arrière-plans inclus)
+PDF + XML ──Go pur──────▶  Factur-X     (PDF/A-3 + embarquement VERBATIM du XML)
+Factur-X  ──auto-contrôle▶ relecture    (structure + intégrité du XML embarqué)
 ```
 
-> **Embarquement verbatim — important.** L'assemblage utilise le support Factur-X
-> natif de Ghostscript (`zugferd.ps`), qui insère le XML **octet pour octet**. On
-> n'utilise *pas* l'assembleur de Mustang : il re-sérialise le XML via son modèle et
-> **perd les champs étendus** comme les adresses électroniques de routage PDP
-> (BT-34/BT-49). Mustang ne sert qu'à la validation.
+> **Embarquement verbatim — important.** Le XML est inséré **octet pour octet**.
+> Un assembleur qui le re-sérialise via son propre modèle **perd les champs
+> étendus**, en particulier les adresses électroniques de routage PDP
+> (BT-34/BT-49). gofact ne retouche jamais le XML qu'il a produit.
 
 ## Dépendances système
 
-- **google-chrome** (ou chromium non-snap) — rendu HTML → PDF
-- **gs** (Ghostscript ≥ 10.x) — PDF/A-3 + embarquement Factur-X (`zugferd.ps`)
-- **java** (JRE 11+) — validation Mustang (téléchargé au 1ᵉʳ run dans `~/.cache/gofact/`)
+**Un navigateur, et c'est tout.**
 
-Le profil ICC sRGB est embarqué dans le binaire (aucune dépendance de chemin).
+- **Chrome, Edge, Brave ou Chromium** — rendu HTML → PDF
+
+Détecté automatiquement sur Linux, macOS et Windows (où **Edge** est
+préinstallé, donc rien à faire). Les paquets confinés — snap, flatpak — sont
+écartés : ils ne peuvent pas lire les fichiers temporaires que gofact leur
+soumet. Pour désigner un exécutable précis : `GOFACT_CHROME` ou `-chrome`.
+
+L'assemblage PDF/A-3 est fait en Go (pdfcpu) : ni Ghostscript, ni Java, ni
+téléchargement au premier lancement. Le profil ICC sRGB est embarqué dans le
+binaire.
+
+## Conformité
+
+Deux vérifications, à deux moments différents :
+
+- **Règles métier EN 16931**, appliquées sur le modèle **avant** de produire quoi
+  que ce soit. gofact refuse d'émettre une facture qu'il sait non conforme, avec
+  l'identifiant de la règle (`BR-50`, `BR-CO-15`…) et le champ à corriger.
+- **Auto-contrôle du PDF**, après écriture : relecture du fichier, vérification
+  des structures Factur-X (`/AF`, `/OutputIntents`, XMP, `/EmbeddedFiles`) et
+  comparaison octet pour octet du XML embarqué avec celui qui a été généré.
+
+La conformité PDF/A-3b de fond est vérifiée par **veraPDF**, via Mustang, en
+intégration continue — jamais chez l'utilisateur :
+
+```sh
+GOFACT_ORACLE_HTML=facture.html go test -tags=ci ./internal/facturx
+```
 
 ## Build
 
@@ -67,7 +92,31 @@ committer.
 Sans vendeur configuré, `gofact` **échoue explicitement** plutôt que d'émettre une
 facture incomplète. Chaque valeur reste surchargeable facture par facture via le JSON.
 
-## Usage
+## Serveur MCP — parler à son IA pour facturer
+
+`gofact mcp` expose la facturation en **serveur MCP local (stdio)** : depuis
+Claude Desktop, Claude Code, LM Studio ou tout client MCP, dire « fais-moi une
+facture pour ACME, 2 jours à 600 € » suffit. L'IA est l'interface ; gofact
+garantit la numérotation (séquence légale continue, attribution verrouillée et
+transactionnelle), la conformité EN 16931 et l'archivage — en local.
+
+```sh
+# Enregistrer dans Claude Code, par exemple :
+claude mcp add gofact -- /chemin/vers/gofact mcp
+```
+
+Outils : `list_organizations`, `get_organization`, `init_organization`,
+`search_client`, `get_invoice_template`, `preview_next_number`, `list_invoices`,
+`create_invoice`, `send_invoice` (seul outil destructif — dépôt PDP,
+confirmation explicite exigée), `get_invoice_status`. Prompt : `nouvelle-facture`.
+
+Une **organisation** (entité émettrice) = un dossier autonome : identité dans
+son `.env`, registre `numerotation.json`, journal d'audit `journal.ndjson`,
+modèle de facture figé à la première émission, et les factures elles-mêmes.
+Gestion au CLI : `gofact org list | init | show`. Aucun secret ne sort jamais
+d'une réponse d'outil.
+
+## Usage (CLI)
 
 ```sh
 # Le plus simple : -data et -out déduits du nom du HTML
@@ -79,7 +128,7 @@ gofact -html f.html -data f.json -out f.pdf -xml f.xml
 
 # Options
 -env <path>       # fichier .env explicite
--validate=false   # n'exécute pas la validation Mustang (plus rapide)
+-validate=false   # n'exécute pas l'auto-contrôle du PDF produit
 -chrome <path>    # force l'exécutable Chrome
 -q                # silencieux (n'affiche que les erreurs)
 ```
@@ -147,31 +196,37 @@ sur ces adresses plutôt que sur l'adresse postale. Exemple (override vendeur) :
 }
 ```
 
-## Distribution (plugin Claude Code)
+## Installation
 
-Ce repo est **aussi un plugin Claude Code** : il embarque le skill `creer-facture`
-(`skills/`) et le binaire, le tout décrit par `.claude-plugin/plugin.json` et exposé
-comme marketplace mono-plugin par `.claude-plugin/marketplace.json`.
+**Binaire précompilé** (release GitHub, aucune toolchain requise) :
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/kolapsis/gofact/main/install.sh | sh
+gofact install -yes    # enregistre le serveur MCP dans les clients détectés
+```
+
+`gofact install` détecte Claude Desktop, Claude Code, LM Studio et Cursor, montre ce
+qu'il compte écrire (dry-run par défaut), sauvegarde chaque fichier avant modification
+et n'écrase jamais une entrée divergente sans `-force`. Windows : `install.ps1`.
+
+**Plugin Claude Code** — le dépôt est aussi un plugin : skill `creer-facture` + serveur
+MCP déclaré (compilé au 1ᵉʳ usage, toolchain Go requise pour ce build initial) :
 
 ```
 /plugin marketplace add kolapsis/gofact
 /plugin install gofact@gofact
 ```
 
-(ou `add <chemin/local/du/clone>` pour une installation depuis un clone.)
+**Depuis les sources** : `go build -o gofact .`
 
-Le skill appelle le binaire via `${CLAUDE_PLUGIN_ROOT}/gofact` et le **compile au 1ᵉʳ
-usage** (le binaire n'est pas versionné, cf. `.gitignore`). Toolchain Go requise pour ce
-build initial ; ensuite, simple exécution.
-
-Le skill travaille dans un **dossier de facturation local** (template HTML, registre de
-numérotation, logo) désigné par `GOFACT_INVOICES_DIR` — jamais versionné ici, puisqu'il
-contient des données réelles.
+Les organisations vivent dans des **dossiers locaux** (identité, registre, factures) —
+jamais versionnés ici : ils contiennent des données réelles. `GOFACT_INVOICES_DIR`
+reste honorée pour la compatibilité avec le skill historique.
 
 ## Limites connues
 
-- Le rendu repose sur Chrome ; le chromium **snap** est ignoré (confiné, ne lit
-  pas hors de `$HOME`).
+- Le rendu repose sur un navigateur Blink ; les paquets confinés (snap,
+  flatpak) sont ignorés car ils ne lisent pas hors de `$HOME`.
 - Mono-taux de TVA. Le multi-taux n'est pas géré.
 - Devise ≠ EUR : la contre-valeur TVA en EUR (BT-111) doit être fournie en amont
   (champ `VATEur` du modèle) ; non exposé dans le JSON pour l'instant.
@@ -179,4 +234,12 @@ contient des données réelles.
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE).
+**GNU AGPL v3 ou ultérieure** — voir [LICENSE](LICENSE).
+
+Copyright (C) 2026 Benjamin Touchard.
+
+gofact est un logiciel libre : vous pouvez le redistribuer et le modifier selon les termes de
+la GNU Affero General Public License telle que publiée par la Free Software Foundation, en
+version 3 ou toute version ultérieure. Il est distribué dans l'espoir qu'il sera utile, mais
+**SANS AUCUNE GARANTIE**, sans même la garantie implicite de qualité marchande ou d'adéquation
+à un usage particulier.

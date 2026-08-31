@@ -3,13 +3,9 @@ package facturx
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -18,17 +14,13 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-// mustangVersion est la version de la CLI Mustang (implémentation EN 16931 de
-// référence) téléchargée à la demande. Identique au spike validé du projet facture.
-const mustangVersion = "2.23.1"
-
 // Options pilote la génération Factur-X.
 type Options struct {
 	HTMLPath   string // facture HTML prête à imprimer (placeholders déjà remplis)
 	OutPath    string // PDF Factur-X de sortie
 	ChromePath string // exécutable Chrome ; vide ⇒ auto-détection
 	XMLOut     string // si non vide, écrit aussi le XML CII à ce chemin (debug)
-	Validate   bool   // valide le résultat avec Mustang après assemblage
+	Validate   bool   // relit et vérifie le Factur-X produit (auto-contrôle)
 	Verbose    bool
 }
 
@@ -40,8 +32,9 @@ type Result struct {
 	Report    string // extrait du rapport de validation
 }
 
-// Generate exécute la chaîne complète : HTML → PDF (Chrome) → PDF/A-3 (Ghostscript)
-// → embarquement XML CII + validation (Mustang).
+// Generate exécute la chaîne complète : règles EN 16931 → XML CII → PDF (Chrome)
+// → PDF/A-3 + embarquement du XML (Go pur) → auto-contrôle du résultat.
+// Aucune dépendance externe hormis Chrome pour le rendu.
 func Generate(ctx context.Context, inv Invoice, opt Options) (Result, error) {
 	var res Result
 	res.OutPath = opt.OutPath
@@ -52,7 +45,12 @@ func Generate(ctx context.Context, inv Invoice, opt Options) (Result, error) {
 	}
 	defer os.RemoveAll(work)
 
-	// 1 — XML CII (EN 16931)
+	// 1 — Règles métier EN 16931, puis XML CII.
+	// On refuse de produire un document qu'on sait non conforme plutôt que de le
+	// valider après coup : l'erreur reste réparable et porte un identifiant de règle.
+	if err := inv.Validate(); err != nil {
+		return res, err
+	}
 	xml, err := BuildCII(inv)
 	if err != nil {
 		return res, err
@@ -75,32 +73,29 @@ func Generate(ctx context.Context, inv Invoice, opt Options) (Result, error) {
 	}
 	logv(opt, "✓ PDF rendu via Chrome (%d octets)", len(rawPDF))
 
-	// 3 — PDF/A-3 + embarquement verbatim du XML (Ghostscript + zugferd.ps)
-	// On embarque le XML tel quel : contrairement à un assembleur qui re-sérialise
-	// via son modèle (et perd les champs étendus comme les adresses de routage PDP,
-	// BT-34/BT-49), gs/zugferd.ps insère le fichier octet pour octet.
+	// 3 — PDF/A-3 + embarquement verbatim du XML (Go pur, cf. assemble.go)
+	// On embarque le XML tel quel : un assembleur qui le re-sérialise via son
+	// modèle perdrait les champs étendus (adresses de routage PDP, BT-34/BT-49).
 	xmlPath := filepath.Join(work, "factur-x.xml")
 	if err := os.WriteFile(xmlPath, xml, 0o644); err != nil {
 		return res, fmt.Errorf("facturx: écriture XML temp: %w", err)
 	}
-	if err := embedFacturX(ctx, work, basePDF, xmlPath, opt.OutPath, inv.IssueDate); err != nil {
+	if err := embedFacturX(basePDF, xmlPath, opt.OutPath, inv.IssueDate); err != nil {
 		return res, err
 	}
 	logv(opt, "✓ Factur-X assemblé (PDF/A-3, XML verbatim) → %s", opt.OutPath)
 
-	// 4 — Validation (optionnelle, via Mustang)
+	// 4 — Auto-contrôle : on relit le fichier écrit et on vérifie que les
+	// structures Factur-X y sont, XML embarqué compris. Aucune dépendance
+	// externe, quelques millisecondes.
 	if opt.Validate {
-		jar, err := ensureMustang(ctx, opt)
-		if err != nil {
-			return res, err
-		}
-		valid, report, err := mustangValidate(ctx, jar, opt.OutPath)
+		bad, err := SelfCheck(opt.OutPath, xml)
 		if err != nil {
 			return res, err
 		}
 		res.Validated = true
-		res.Valid = valid
-		res.Report = report
+		res.Valid = len(bad) == 0
+		res.Report = strings.Join(bad, "\n")
 	}
 	return res, nil
 }
@@ -116,8 +111,14 @@ func renderHTML(ctx context.Context, htmlPath, chromePath string) ([]byte, error
 	if _, err := os.Stat(abs); err != nil {
 		return nil, fmt.Errorf("facturx: HTML introuvable: %w", err)
 	}
-	// Encode le chemin (espaces, apostrophes…) en URL file:// valide.
-	fileURL := (&url.URL{Scheme: "file", Path: abs}).String()
+	// Encode le chemin (espaces, apostrophes…) en URL file:// valide. Sous
+	// Windows le chemin devient /C:/… : séparateurs en barres obliques et barre
+	// initiale devant la lettre de lecteur, sinon Chrome répond ERR_INVALID_URL.
+	p := filepath.ToSlash(abs)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	fileURL := (&url.URL{Scheme: "file", Path: p}).String()
 
 	opts := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
 	opts = append(opts,
@@ -128,9 +129,12 @@ func renderHTML(ctx context.Context, htmlPath, chromePath string) ([]byte, error
 	if chromePath == "" {
 		chromePath = detectChrome()
 	}
-	if chromePath != "" {
-		opts = append(opts, chromedp.ExecPath(chromePath))
+	if chromePath == "" {
+		// Échouer ici avec une explication vaut mieux que de laisser chromedp
+		// remonter une erreur de connexion incompréhensible.
+		return nil, chromeMissingError()
 	}
+	opts = append(opts, chromedp.ExecPath(chromePath))
 
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(ctx, opts...)
 	defer cancelAlloc()
@@ -185,173 +189,9 @@ func renderHTML(ctx context.Context, htmlPath, chromePath string) ([]byte, error
 	return pdf, nil
 }
 
-// detectChrome privilégie un Chrome/Chromium « classique » (deb) au chromium snap,
-// ce dernier étant confiné et incapable de lire des fichiers hors de $HOME (/tmp…).
-func detectChrome() string {
-	candidates := []string{
-		"/usr/bin/google-chrome",
-		"/usr/bin/google-chrome-stable",
-		"/opt/google/chrome/chrome",
-		"/usr/bin/chromium",
-		"/usr/bin/chromium-browser",
-	}
-	for _, c := range candidates {
-		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
-			// Évite le wrapper snap (lien vers /snap/…) qui est confiné.
-			if real, err := filepath.EvalSymlinks(c); err == nil && strings.HasPrefix(real, "/snap/") {
-				continue
-			}
-			return c
-		}
-	}
-	if p, err := exec.LookPath("google-chrome"); err == nil {
-		return p
-	}
-	return "" // laisse chromedp tenter sa propre détection
-}
-
 // facturxConformance est le niveau de conformité inscrit dans le XMP Factur-X.
 // Aligné sur le guideline (BT-24) du XML CII produit par BuildCII.
 const facturxConformance = "EN 16931"
-
-// embedFacturX produit le PDF/A-3 Factur-X final en une passe Ghostscript :
-// conversion PDF/A-3 (OutputIntent sRGB) + embarquement VERBATIM du XML via le
-// script zugferd.ps fourni avec Ghostscript (support Factur-X natif). Le XML est
-// inséré octet pour octet — aucune re-sérialisation, les adresses de routage PDP
-// (BT-34/BT-49) sont préservées.
-func embedFacturX(ctx context.Context, work, inPDF, xmlPath, out string, issue time.Time) error {
-	iccPath := filepath.Join(work, "srgb.icc")
-	if err := os.WriteFile(iccPath, srgbICC, 0o644); err != nil {
-		return fmt.Errorf("facturx: écriture ICC: %w", err)
-	}
-	zugferd, err := locateZugferdPS()
-	if err != nil {
-		return err
-	}
-	dt := "D:" + issue.Format("20060102") + "000000"
-
-	args := []string{
-		"-dPDFA=3", "-dBATCH", "-dNOPAUSE", "-dNOOUTERSAVE", "-q",
-		"-sColorConversionStrategy=RGB", "-sProcessColorModel=DeviceRGB",
-		"-sDEVICE=pdfwrite", "-dPDFACompatibilityPolicy=1",
-		"--permit-file-read=" + work + string(os.PathSeparator),
-		"--permit-file-read=" + xmlPath,
-		"-sZUGFeRDXMLFile=" + xmlPath,
-		"-sZUGFeRDProfile=" + iccPath,
-		"-sZUGFeRDVersion=2p1", // ⇒ profil Factur-X (factur-x.xml, préfixe fx)
-		"-sZUGFeRDConformanceLevel=" + facturxConformance,
-		"-sZUGFeRDDateTime=" + dt,
-		"-o", out,
-		zugferd, inPDF,
-	}
-	cmd := exec.CommandContext(ctx, "gs", args...)
-	if outBytes, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("facturx: Ghostscript/zugferd.ps: %w\n%s", err, outBytes)
-	}
-	if _, err := os.Stat(out); err != nil {
-		return fmt.Errorf("facturx: Ghostscript n'a pas produit de sortie: %w", err)
-	}
-	return nil
-}
-
-// locateZugferdPS trouve le script zugferd.ps livré avec Ghostscript (support
-// Factur-X). Il vit dans le répertoire lib/ de l'installation gs.
-func locateZugferdPS() (string, error) {
-	patterns := []string{
-		"/usr/share/ghostscript/*/lib/zugferd.ps",
-		"/usr/share/ghostscript/*/Resource/Init/zugferd.ps",
-		"/usr/local/share/ghostscript/*/lib/zugferd.ps",
-		"/opt/homebrew/share/ghostscript/*/lib/zugferd.ps",
-	}
-	for _, p := range patterns {
-		if m, _ := filepath.Glob(p); len(m) > 0 {
-			return m[len(m)-1], nil // dernière = version la plus récente
-		}
-	}
-	return "", fmt.Errorf("facturx: zugferd.ps introuvable (support Factur-X de Ghostscript ≥ 10.x requis)")
-}
-
-// ensureMustang renvoie le chemin du jar Mustang, le téléchargeant dans le cache
-// utilisateur s'il est absent.
-func ensureMustang(ctx context.Context, opt Options) (string, error) {
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		cacheDir = os.TempDir()
-	}
-	dir := filepath.Join(cacheDir, "gofact")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("facturx: cache: %w", err)
-	}
-	jar := filepath.Join(dir, "Mustang-CLI-"+mustangVersion+".jar")
-	if fi, err := os.Stat(jar); err == nil && fi.Size() > 0 {
-		return jar, nil
-	}
-	url := fmt.Sprintf("https://repo1.maven.org/maven2/org/mustangproject/Mustang-CLI/%s/Mustang-CLI-%s.jar",
-		mustangVersion, mustangVersion)
-	logv(opt, "→ Téléchargement de Mustang CLI %s…", mustangVersion)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", fmt.Errorf("facturx: requête Mustang: %w", err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("facturx: téléchargement Mustang: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("facturx: téléchargement Mustang: statut %d", resp.StatusCode)
-	}
-	tmp := jar + ".part"
-	f, err := os.Create(tmp)
-	if err != nil {
-		return "", fmt.Errorf("facturx: création jar: %w", err)
-	}
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		_ = f.Close()
-		return "", fmt.Errorf("facturx: écriture jar: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return "", err
-	}
-	if err := os.Rename(tmp, jar); err != nil {
-		return "", fmt.Errorf("facturx: finalisation jar: %w", err)
-	}
-	return jar, nil
-}
-
-// verdictLine capte le verdict synthétique de Mustang : « …PDF:valid XML:valid… ».
-var verdictLine = regexp.MustCompile(`PDF:(valid|invalid)\s+XML:(valid|invalid)`)
-
-func mustangValidate(ctx context.Context, jar, pdf string) (bool, string, error) {
-	args := []string{"-jar", jar, "--action", "validate", "--source", pdf, "--disable-file-logging"}
-	cmd := exec.CommandContext(ctx, "java", args...)
-	out, _ := cmd.CombinedOutput() // code de sortie non nul si invalide ; on lit le verdict
-	report := string(out)
-	m := verdictLine.FindStringSubmatch(report)
-	valid := len(m) == 3 && m[1] == "valid" && m[2] == "valid"
-	return valid, summarize(report), nil
-}
-
-// summarize extrait l'essentiel du rapport : le verdict et les assertions en échec
-// (hors notices non françaises), pour un diagnostic lisible en cas d'invalidité.
-func summarize(report string) string {
-	var b strings.Builder
-	for _, line := range strings.Split(report, "\n") {
-		t := strings.TrimSpace(line)
-		if strings.Contains(t, "Parsed PDF:") {
-			b.WriteString(t)
-			b.WriteString("\n")
-		}
-		if strings.Contains(t, "FailedAssert") && (strings.Contains(t, "ERROR") || strings.Contains(t, "[BR-")) {
-			b.WriteString(t)
-			b.WriteString("\n")
-		}
-	}
-	if b.Len() == 0 {
-		return strings.TrimSpace(report)
-	}
-	return strings.TrimSpace(b.String())
-}
 
 func logv(opt Options, format string, a ...any) {
 	if opt.Verbose {
