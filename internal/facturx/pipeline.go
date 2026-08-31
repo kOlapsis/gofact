@@ -111,8 +111,14 @@ func renderHTML(ctx context.Context, htmlPath, chromePath string) ([]byte, error
 	if _, err := os.Stat(abs); err != nil {
 		return nil, fmt.Errorf("facturx: HTML introuvable: %w", err)
 	}
-	// Encode le chemin (espaces, apostrophes…) en URL file:// valide.
-	fileURL := (&url.URL{Scheme: "file", Path: abs}).String()
+	// Encode le chemin (espaces, apostrophes…) en URL file:// valide. Sous
+	// Windows le chemin devient /C:/… : séparateurs en barres obliques et barre
+	// initiale devant la lettre de lecteur, sinon Chrome répond ERR_INVALID_URL.
+	p := filepath.ToSlash(abs)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	fileURL := (&url.URL{Scheme: "file", Path: p}).String()
 
 	opts := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
 	opts = append(opts,
