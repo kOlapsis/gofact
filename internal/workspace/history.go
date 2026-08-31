@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/kolapsis/gofact/internal/facturx"
 )
@@ -66,23 +67,96 @@ func (o *Org) Clients() ([]Client, error) {
 	return out, nil
 }
 
-// FindClient cherche un client dans l'historique par nom (insensible à la casse
-// et aux accents près — recherche par sous-chaîne) ou par SIREN/SIRET exact.
+// FindClient cherche un client dans l'historique par nom (recherche par
+// sous-chaîne, insensible à la casse, aux accents et aux séparateurs) ou par
+// SIREN/SIRET. Un SIREN retrouve aussi les clients dont l'historique ne connaît
+// que le SIRET, dont il est le préfixe.
+//
+// La normalisation du nom n'est pas cosmétique : sans elle, chercher « NeoDTx »
+// un client enregistré « Neo DTx » ne renvoie rien, et l'appelant se rabat sur
+// l'annuaire public — où un homonyme peut être facturé à sa place.
 func (o *Org) FindClient(query string) ([]Client, error) {
 	all, err := o.Clients()
 	if err != nil {
 		return nil, err
 	}
-	q := strings.ToLower(strings.TrimSpace(query))
-	digits := strings.ReplaceAll(q, " ", "")
+	q := foldKey(query)
+	digits := digitsOnly(query)
+	if q == "" && digits == "" {
+		return nil, nil
+	}
 	var out []Client
 	for _, c := range all {
-		if strings.Contains(strings.ToLower(c.Name), q) ||
-			(digits != "" && (c.SIREN == digits || c.SIRET == digits)) {
+		if (q != "" && strings.Contains(foldKey(c.Name), q)) || matchesID(c, digits) {
 			out = append(out, c)
 		}
 	}
 	return out, nil
+}
+
+// matchesID compare une suite de chiffres au SIREN et au SIRET du client. Le
+// SIREN étant les 9 premiers chiffres du SIRET, une recherche par SIREN doit
+// retrouver un client dont on ne connaît que l'établissement.
+func matchesID(c Client, digits string) bool {
+	if digits == "" {
+		return false
+	}
+	for _, id := range []string{digitsOnly(c.SIREN), digitsOnly(c.SIRET)} {
+		if id == "" {
+			continue
+		}
+		if id == digits || (len(digits) == 9 && len(id) >= 9 && id[:9] == digits) {
+			return true
+		}
+	}
+	return false
+}
+
+// digitsOnly ne retient que les chiffres : « 945 226 215 » et « 945226215 »
+// désignent le même SIREN.
+func digitsOnly(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// foldKey réduit une chaîne à sa forme comparable : minuscules, accents
+// dépliés, séparateurs et ponctuation supprimés. « Neo DTx », « NeoDTx » et
+// « néo-dtx » partagent ainsi la même clé.
+func foldKey(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range strings.ToLower(strings.TrimSpace(s)) {
+		if repl, ok := foldRunes[r]; ok {
+			b.WriteString(repl)
+			continue
+		}
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+		}
+		// Espaces, tirets, apostrophes, points : ignorés.
+	}
+	return b.String()
+}
+
+// foldRunes déplie les lettres accentuées et les ligatures rencontrées dans les
+// raisons sociales européennes. Table explicite plutôt que golang.org/x/text :
+// la dépendance resterait indirecte et le jeu à couvrir est petit et stable.
+var foldRunes = map[rune]string{
+	'à': "a", 'á': "a", 'â': "a", 'ã': "a", 'ä': "a", 'å': "a", 'ā': "a",
+	'ç': "c", 'ć': "c", 'č': "c",
+	'è': "e", 'é': "e", 'ê': "e", 'ë': "e", 'ē': "e", 'ę': "e",
+	'ì': "i", 'í': "i", 'î': "i", 'ï': "i", 'ī': "i",
+	'ñ': "n", 'ń': "n",
+	'ò': "o", 'ó': "o", 'ô': "o", 'õ': "o", 'ö': "o", 'ø': "o", 'ō': "o",
+	'ù': "u", 'ú': "u", 'û': "u", 'ü': "u", 'ū': "u",
+	'ý': "y", 'ÿ': "y",
+	'š': "s", 'ś': "s", 'ż': "z", 'ź': "z", 'ž': "z", 'ł': "l",
+	'æ': "ae", 'œ': "oe", 'ß': "ss",
 }
 
 // clientKey identifie un client : le SIREN quand il existe (stable à travers les
