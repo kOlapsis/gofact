@@ -1,0 +1,49 @@
+site_name: gofact
+site_description: Facturation électronique française (Factur-X) pilotée par votre IA — en local.
+site_url: https://kolapsis.github.io/gofact/
+repo_url: https://github.com/kOlapsis/gofact
+repo_name: kOlapsis/gofact
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: fr
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: deep orange
+      toggle: { icon: material/weather-night, name: Passer en sombre }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: deep orange
+      toggle: { icon: material/weather-sunny, name: Passer en clair }
+  features:
+    - navigation.sections
+    - navigation.footer
+    - content.code.copy
+    - content.action.edit
+
+nav:
+  - Accueil: index.md
+  - Installation: installation.md
+  - Premiers pas: demarrage.md
+  - Guide:
+      - Parler à son IA (MCP): guide/mcp.md
+      - Ligne de commande: guide/cli.md
+      - Le dossier d'organisation: guide/organisation.md
+  - Conformité: conformite.md
+  - Envoi PDP: pdp.md
+  - FAQ & dépannage: faq.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight
+  - toc:
+      permalink: true
