@@ -78,12 +78,14 @@ func addOrgTools(s *mcp.Server) {
 		PostalCode string `json:"postal_code,omitempty"`
 		City       string `json:"city,omitempty"`
 		IBAN       string `json:"iban,omitempty" jsonschema:"IBAN de règlement — requis pour émettre des factures payables par virement"`
+		LastNumber string `json:"last_invoice_number,omitempty" jsonschema:"dernier numéro déjà émis (ex. 2026011) si l'utilisateur facturait déjà avant gofact — TOUJOURS poser la question : la numérotation doit continuer sans trou ni doublon"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "init_organization",
-		Description: "Crée un dossier d'organisation : registre de numérotation vierge et identité de " +
-			"l'émetteur. Refuse d'écraser un dossier existant. Demander les informations à l'utilisateur, " +
-			"ne jamais les inventer.",
+		Description: "Crée un dossier d'organisation : registre de numérotation et identité de l'émetteur. " +
+			"Refuse d'écraser un dossier existant. Demander les informations à l'utilisateur, ne jamais " +
+			"les inventer — et TOUJOURS demander si des factures ont déjà été émises cette année : si " +
+			"oui, last_invoice_number reprend la séquence là où elle en est.",
 		Annotations: &mcp.ToolAnnotations{Title: "Créer une organisation", ReadOnlyHint: false,
 			DestructiveHint: boolPtr(false), IdempotentHint: true},
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in initIn) (*mcp.CallToolResult, orgSummary, error) {
@@ -97,11 +99,45 @@ func addOrgTools(s *mcp.Server) {
 			"GOFACT_SELLER_POSTAL_CODE": in.PostalCode,
 			"GOFACT_SELLER_CITY":        in.City,
 			"GOFACT_PAYEE_IBAN":         in.IBAN,
-		})
+		}, in.LastNumber)
 		if err != nil {
 			return nil, orgSummary{}, err
 		}
 		return nil, summarize(o), nil
+	})
+
+	type numberingIn struct {
+		orgParam
+		LastNumber string `json:"last_invoice_number" jsonschema:"dernier numéro déjà émis (ex. 2026011) — le prochain émis sera le suivant"`
+	}
+	type numberingOut struct {
+		NextNumber string `json:"next_number"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "initialize_numbering",
+		Description: "Reprend une numérotation existante quand l'utilisateur facturait déjà avant gofact : " +
+			"le compteur de l'année passe au dernier numéro émis, le suivant sera émis par gofact. Le " +
+			"compteur ne peut que monter — l'abaisser réutiliserait des numéros, ce qui est interdit. " +
+			"Idempotent.",
+		Annotations: &mcp.ToolAnnotations{Title: "Reprendre la numérotation", ReadOnlyHint: false,
+			DestructiveHint: boolPtr(false), IdempotentHint: true},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in numberingIn) (*mcp.CallToolResult, numberingOut, error) {
+		o, err := resolveOrg(in.Org)
+		if err != nil {
+			return nil, numberingOut{}, err
+		}
+		year, counter, err := workspace.ParseNumber(in.LastNumber)
+		if err != nil {
+			return nil, numberingOut{}, err
+		}
+		if err := o.RaiseCounter(year, counter); err != nil {
+			return nil, numberingOut{}, err
+		}
+		next, err := o.NextNumber(time.Now())
+		if err != nil {
+			return nil, numberingOut{}, err
+		}
+		return nil, numberingOut{NextNumber: next}, nil
 	})
 
 	type templateOut struct {
@@ -124,12 +160,15 @@ func addOrgTools(s *mcp.Server) {
 			return nil, templateOut{}, err
 		}
 		if tpl == "" {
-			return nil, templateOut{Note: "Aucun modèle figé : c'est la première facture de cette organisation. " +
-				"Composer un HTML de facture soigné et imprimable (A4, CSS embarqué, polices système, " +
-				"pas de <a href>, logo vectoriel) avec le jeton {{NUMERO}} à la place du numéro ; " +
-				"il deviendra le modèle de référence."}, nil
+			return nil, templateOut{Note: "Aucun modèle encore : c'est le moment de le CRÉER AVEC " +
+				"l'utilisateur. Lui demander ses envies (logo, couleurs, ton, mentions à faire figurer), " +
+				"composer un HTML de facture A4 soigné (CSS embarqué, polices système, pas de <a href>, " +
+				"logo vectoriel, jeton {{NUMERO}}), puis le lui montrer avec preview_invoice et itérer " +
+				"jusqu'à ce qu'il soit satisfait. La première facture créée en fera le modèle de référence."}, nil
 		}
-		return nil, templateOut{HTML: tpl, Note: "Modèle de référence : reprendre sa structure telle quelle, " +
-			"n'adapter que les contenus (client, lignes, montants, dates) et garder {{NUMERO}}."}, nil
+		return nil, templateOut{HTML: tpl, Note: "Modèle de référence : en repartir et n'adapter que les " +
+			"contenus (client, lignes, montants, dates), en gardant {{NUMERO}}. La mise en page peut " +
+			"évoluer si l'utilisateur le souhaite — itérer avec preview_invoice puis create_invoice " +
+			"avec update_template=true."}, nil
 	})
 }

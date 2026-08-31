@@ -16,7 +16,7 @@ func newOrg(t *testing.T) *Org {
 	org, err := Init(filepath.Join(t.TempDir(), "orga"), map[string]string{
 		"GOFACT_SELLER_NAME":  "Studio Exemple",
 		"GOFACT_SELLER_SIRET": "12345678900014",
-	})
+	}, "")
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -288,5 +288,52 @@ func TestDiscoverPriorities(t *testing.T) {
 	}
 	if !found {
 		t.Error("GOFACT_INVOICES_DIR doit être découverte")
+	}
+}
+
+// Reprise d'une numérotation existante : le compteur monte, jamais ne descend.
+func TestNumberingTakeover(t *testing.T) {
+	org, err := Init(filepath.Join(t.TempDir(), "orga"), nil, "2026011")
+	if err != nil {
+		t.Fatalf("Init avec reprise : %v", err)
+	}
+	now := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	if next, _ := org.NextNumber(now); next != "2026012" {
+		t.Fatalf("NextNumber = %s, want 2026012", next)
+	}
+	// Idempotent au même niveau ; refus en dessous.
+	if err := org.RaiseCounter(2026, 11); err != nil {
+		t.Errorf("RaiseCounter au même niveau doit être accepté : %v", err)
+	}
+	if err := org.RaiseCounter(2026, 5); err == nil {
+		t.Error("abaisser le compteur doit être refusé — réutilisation de numéros")
+	}
+	// L'attribution suit la reprise.
+	if num, err := org.Allocate(now, RegistryEntry{Client: "ACME", Fichier: "f.html"}); err != nil || num != "2026012" {
+		t.Errorf("Allocate = %q, %v ; want 2026012", num, err)
+	}
+	// Numéro invalide → erreur explicite.
+	if _, _, err := ParseNumber("FAC-2026-11"); err == nil {
+		t.Error("ParseNumber doit refuser un format étranger")
+	}
+}
+
+// Le remplacement délibéré du modèle est permis et journalisé — la mise en
+// page n'est pas gravée dans le marbre, la numérotation l'est.
+func TestReplaceTemplate(t *testing.T) {
+	org := newOrg(t)
+	if _, err := org.FreezeTemplate("<div class=\"v1\">a</div>"); err != nil {
+		t.Fatal(err)
+	}
+	if err := org.ReplaceTemplate("<div class=\"v2\">b</div>"); err != nil {
+		t.Fatal(err)
+	}
+	tpl, _ := org.Template()
+	if !strings.Contains(tpl, "v2") {
+		t.Errorf("le modèle doit être remplacé, obtenu %q", tpl)
+	}
+	journal, _ := os.ReadFile(filepath.Join(org.Path, JournalFile))
+	if !strings.Contains(string(journal), "template_replaced") {
+		t.Error("le remplacement du modèle doit être journalisé")
 	}
 }

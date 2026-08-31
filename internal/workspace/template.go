@@ -36,9 +36,20 @@ func (o *Org) Template() (string, error) {
 	return string(raw), nil
 }
 
+// ReplaceTemplate remplace délibérément le modèle de référence. La mise en page
+// n'est pas gravée dans le marbre — c'est la numérotation qui l'est — mais un
+// changement de modèle doit être un choix, pas un accident : d'où une méthode
+// distincte de FreezeTemplate.
+func (o *Org) ReplaceTemplate(html string) error {
+	if err := os.WriteFile(filepath.Join(o.Path, TemplateFile), []byte(html), 0o644); err != nil {
+		return err
+	}
+	return o.Journal("template_replaced", map[string]any{"fingerprint": Fingerprint(html)})
+}
+
 // FreezeTemplate fige html comme modèle de référence si le dossier n'en a pas
-// encore. Ne remplace JAMAIS un modèle existant : pour en changer, l'utilisateur
-// supprime ou édite le fichier lui-même, en connaissance de cause.
+// encore. Ne remplace jamais un modèle existant par accident : le changement
+// délibéré passe par ReplaceTemplate.
 func (o *Org) FreezeTemplate(html string) (frozen bool, err error) {
 	path := filepath.Join(o.Path, TemplateFile)
 	if _, err := os.Stat(path); err == nil {
@@ -61,9 +72,9 @@ func (o *Org) TemplateDrift(html string) (string, error) {
 	if Fingerprint(ref) == Fingerprint(html) {
 		return "", nil
 	}
-	return fmt.Sprintf("la structure de ce HTML diffère du modèle de référence (%s) : "+
-		"les factures de cette organisation risquent de ne plus se ressembler. "+
-		"Repartir du modèle, ou le remplacer volontairement en éditant ce fichier.", TemplateFile), nil
+	return fmt.Sprintf("la structure de ce HTML diffère du modèle de référence (%s). "+
+		"Si c'est voulu — la mise en page peut évoluer librement — refaire l'appel avec "+
+		"update_template pour en faire le nouveau modèle ; sinon, repartir du modèle.", TemplateFile), nil
 }
 
 var (

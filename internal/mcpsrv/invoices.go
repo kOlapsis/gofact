@@ -82,10 +82,39 @@ func addInvoiceTools(s *mcp.Server) {
 		return nil, out, nil
 	})
 
+	type previewInvIn struct {
+		orgParam
+		HTML string `json:"html" jsonschema:"le HTML de la facture ou du modèle à prévisualiser (avec le jeton {{NUMERO}})"`
+	}
+	type previewInvOut struct {
+		PDFPath string `json:"pdf_path"`
+		Note    string `json:"note"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "preview_invoice",
+		Description: "Rend un HTML de facture en PDF d'aperçu, SANS rien consommer ni enregistrer : ni " +
+			"numéro, ni registre, ni Factur-X. L'outil de mise au point du modèle — montrer le PDF à " +
+			"l'utilisateur, recueillir ses retours, itérer, et seulement ensuite create_invoice.",
+		Annotations: &mcp.ToolAnnotations{Title: "Aperçu de facture", ReadOnlyHint: false,
+			DestructiveHint: boolPtr(false), IdempotentHint: true},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in previewInvIn) (*mcp.CallToolResult, previewInvOut, error) {
+		o, err := resolveOrg(in.Org)
+		if err != nil {
+			return nil, previewInvOut{}, err
+		}
+		path, err := previewInvoice(ctx, o, in.HTML)
+		if err != nil {
+			return nil, previewInvOut{}, err
+		}
+		return nil, previewInvOut{PDFPath: path, Note: "Aperçu marqué SPÉCIMEN, écrasé au prochain appel. " +
+			"Inviter l'utilisateur à l'ouvrir ; ajuster le HTML selon ses retours."}, nil
+	})
+
 	type createIn struct {
 		orgParam
-		HTML string       `json:"html" jsonschema:"la facture HTML complète et imprimable (A4, CSS embarqué), contenant le jeton {{NUMERO}} à l'emplacement du numéro"`
-		Spec facturx.Spec `json:"spec" jsonschema:"les données structurées de la facture (montants en CENTIMES) ; ne pas renseigner number, le serveur l'attribue"`
+		HTML           string       `json:"html" jsonschema:"la facture HTML complète et imprimable (A4, CSS embarqué), contenant le jeton {{NUMERO}} à l'emplacement du numéro"`
+		Spec           facturx.Spec `json:"spec" jsonschema:"les données structurées de la facture (montants en CENTIMES) ; ne pas renseigner number, le serveur l'attribue"`
+		UpdateTemplate bool         `json:"update_template,omitempty" jsonschema:"true si ce HTML doit devenir le nouveau modèle de référence de l'organisation (changement de mise en page voulu par l'utilisateur)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_invoice",
@@ -100,7 +129,7 @@ func addInvoiceTools(s *mcp.Server) {
 		if err != nil {
 			return nil, createOutT{}, err
 		}
-		out, err := createInvoice(ctx, o, in.HTML, in.Spec)
+		out, err := createInvoice(ctx, o, in.HTML, in.Spec, in.UpdateTemplate)
 		return nil, out, err
 	})
 }
@@ -109,7 +138,7 @@ func addInvoiceTools(s *mcp.Server) {
 // AVANT de consommer le numéro (validation des règles) ou SOUS le verrou
 // (rendu, assemblage) — un échec ne laisse jamais de trou dans la séquence ni
 // de fichier orphelin.
-func createInvoice(ctx context.Context, o *workspace.Org, html string, spec facturx.Spec) (createOutT, error) {
+func createInvoice(ctx context.Context, o *workspace.Org, html string, spec facturx.Spec, updateTemplate bool) (createOutT, error) {
 	if strings.TrimSpace(html) == "" {
 		return createOutT{}, fmt.Errorf("le HTML de la facture est vide. Composer d'abord la facture — " +
 			"récupérer le modèle avec get_invoice_template")
@@ -196,14 +225,47 @@ func createInvoice(ctx context.Context, o *workspace.Org, html string, spec fact
 		return createOutT{}, err
 	}
 
-	// Modèle : figé à la première facture (avec son jeton, pas le numéro
-	// attribué), dérive signalée ensuite.
-	if frozen, ferr := o.FreezeTemplate(html); ferr == nil && frozen {
+	// Modèle : figé à la première facture, remplacé sur demande explicite —
+	// la mise en page peut évoluer, c'est la numérotation qui ne bouge pas.
+	// Une dérive non demandée n'est qu'un signalement, jamais un blocage.
+	if updateTemplate {
+		if err := o.ReplaceTemplate(html); err == nil {
+			out.TemplateFrozen = true
+		}
+	} else if frozen, ferr := o.FreezeTemplate(html); ferr == nil && frozen {
 		out.TemplateFrozen = true
 	} else if ferr == nil {
 		if warn, _ := o.TemplateDrift(html); warn != "" {
 			out.Warnings = append(out.Warnings, warn)
 		}
+	}
+	return out, nil
+}
+
+// previewInvoice rend un aperçu SPÉCIMEN dans le dossier de l'organisation,
+// sans toucher ni au registre ni au compteur.
+func previewInvoice(ctx context.Context, o *workspace.Org, html string) (string, error) {
+	if strings.TrimSpace(html) == "" {
+		return "", fmt.Errorf("le HTML à prévisualiser est vide")
+	}
+	work, err := os.MkdirTemp("", "gofact-apercu-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(work)
+
+	src := filepath.Join(work, "apercu.html")
+	final := strings.ReplaceAll(html, numberToken, "SPÉCIMEN")
+	if err := os.WriteFile(src, []byte(final), 0o644); err != nil {
+		return "", err
+	}
+	pdf, err := facturx.RenderHTML(ctx, src, "")
+	if err != nil {
+		return "", err
+	}
+	out := filepath.Join(o.Path, "apercu.pdf")
+	if err := os.WriteFile(out, pdf, 0o644); err != nil {
+		return "", err
 	}
 	return out, nil
 }

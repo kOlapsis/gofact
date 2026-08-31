@@ -15,16 +15,22 @@ avec les outils gofact. Déroulé :
 
 1. list_organizations — identifier l'entité émettrice. S'il y en a plusieurs,
    demander laquelle. S'il n'y en a aucune, proposer init_organization et
-   collecter l'identité auprès de l'utilisateur (ne rien inventer).
+   collecter l'identité auprès de l'utilisateur (ne rien inventer) — et TOUJOURS
+   demander si des factures ont déjà été émises cette année : si oui, reprendre
+   la séquence avec last_invoice_number (ou initialize_numbering). La
+   numérotation continue et sans trou est LE point critique.
 2. search_client — retrouver le client dans l'historique. S'il est inconnu,
    demander ses coordonnées : nom exact, SIRET, adresse postale, e-mail, et si
    possible son adresse de routage Peppol (souvent le SIREN, scheme 0225).
 3. Collecter les prestations : libellé, quantité (jours ou unités), prix
    unitaire HT. Tous les montants se transmettent en CENTIMES dans spec.
-4. get_invoice_template — s'il existe un modèle figé, REPARTIR de ce modèle et
-   n'adapter que les contenus. Sinon composer un HTML de facture soigné :
-   format A4, CSS embarqué, polices système, pas de liens <a href>, logo
-   vectoriel — et le jeton {{NUMERO}} à l'emplacement du numéro.
+4. get_invoice_template — s'il existe un modèle, en repartir et n'adapter que
+   les contenus. Sinon, c'est l'occasion de CRÉER le modèle avec l'utilisateur :
+   demander ses envies (logo, couleurs, ton), composer un HTML A4 soigné (CSS
+   embarqué, polices système, pas de <a href>, logo vectoriel, jeton {{NUMERO}}),
+   le montrer avec preview_invoice et itérer jusqu'à satisfaction. La mise en
+   page peut évoluer plus tard (create_invoice avec update_template=true) —
+   c'est la numérotation qui ne bouge jamais, pas le visuel.
 5. preview_next_number — annoncer le numéro, récapituler la facture (client,
    lignes, totaux HT/TTC, date) et demander confirmation à l'utilisateur.
 6. create_invoice — après accord seulement. Relayer le chemin du PDF produit

@@ -100,6 +100,13 @@ func Generate(ctx context.Context, inv Invoice, opt Options) (Result, error) {
 	return res, nil
 }
 
+// RenderHTML rend un fichier HTML en PDF, sans assemblage Factur-X ni
+// enregistrement d'aucune sorte — la brique d'aperçu, pour itérer sur un
+// modèle de facture avant d'émettre quoi que ce soit.
+func RenderHTML(ctx context.Context, htmlPath, chromePath string) ([]byte, error) {
+	return renderHTML(ctx, htmlPath, chromePath)
+}
+
 // renderHTML rend un fichier HTML en PDF via Chrome headless (CDP). Force
 // l'impression des arrière-plans et honore le @page dynamique du template
 // (taille recalculée pour tenir sur une page) via preferCSSPageSize.

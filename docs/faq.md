@@ -65,6 +65,17 @@ L'auto-contrôle tourne à chaque génération. Pour une preuve indépendante :
 chaîne par veraPDF + Schematron via Mustang. Vous pouvez aussi déposer le PDF sur un
 validateur tiers — il embarque un XML standard.
 
+**Je facturais déjà — comment continuer ma numérotation ?**
+Donnez votre dernier numéro émis à l'IA lors de la création de l'organisation, ou
+`gofact org set-counter -last-number 2026011`. Le compteur ne peut que monter :
+l'abaisser réutiliserait des numéros, gofact le refuse.
+
+**Puis-je changer la mise en page de mes factures ?**
+Oui, librement — c'est la numérotation qui est intouchable, pas le visuel. Demandez le
+changement à l'IA : elle itère avec des aperçus SPÉCIMEN (`preview_invoice`), puis
+officialise le nouveau modèle à la facture suivante (`update_template`). Le changement
+est journalisé.
+
 **Puis-je modifier une facture émise ?**
 Non — comptablement, une facture émise se corrige par un **avoir**
 (`"type": "credit_note"`), jamais par retouche. Le registre et le journal gardent

@@ -23,8 +23,10 @@ garantit.
 
 | Outil | Rôle |
 |---|---|
-| `init_organization` | Crée un dossier d'organisation ; refuse d'écraser l'existant |
-| `create_invoice` | **La transaction** : numéro + fichiers + PDF Factur-X + registre, en un appel |
+| `init_organization` | Crée un dossier d'organisation (avec `last_invoice_number` pour reprendre une numérotation existante) ; refuse d'écraser l'existant |
+| `initialize_numbering` | Reprend une séquence existante sur un dossier déjà créé — le compteur ne peut que monter |
+| `preview_invoice` | PDF d'aperçu marqué SPÉCIMEN — itérer sur le modèle **sans rien consommer** |
+| `create_invoice` | **La transaction** : numéro + fichiers + PDF Factur-X + registre, en un appel. `update_template=true` officialise une nouvelle mise en page |
 | `send_invoice` | Dépôt PDP — **seul outil destructif**, exige `confirm=true` après votre accord explicite |
 
 ## Trois garanties de conception

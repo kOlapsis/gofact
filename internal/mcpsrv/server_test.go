@@ -47,7 +47,7 @@ func testOrg(t *testing.T) *workspace.Org {
 		"GOFACT_SELLER_CITY":        "Bordeaux",
 		"GOFACT_PAYEE_IBAN":         "FR7630001007941234567890185",
 		"SUPERPDP_CLIENT_SECRET":    "jamais-dans-une-sortie",
-	})
+	}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,8 +85,9 @@ func TestToolAnnotations(t *testing.T) {
 		byName[tool.Name] = tool
 	}
 	for _, name := range []string{"list_organizations", "get_organization", "get_invoice_template",
-		"search_client", "find_routing_address", "preview_next_number", "list_invoices",
-		"create_invoice", "send_invoice", "get_invoice_status", "init_organization"} {
+		"search_client", "find_routing_address", "preview_next_number", "preview_invoice",
+		"list_invoices", "create_invoice", "send_invoice", "get_invoice_status",
+		"init_organization", "initialize_numbering"} {
 		if byName[name] == nil {
 			t.Errorf("outil %s absent", name)
 		}
@@ -239,5 +240,76 @@ func TestSendInvoiceRequiresConfirmation(t *testing.T) {
 	res, raw := call(t, cs, "send_invoice", map[string]any{"number": "2026001", "confirm": false})
 	if !res.IsError || !strings.Contains(raw, "confirm") {
 		t.Errorf("le dépôt sans confirmation doit être refusé : %s", raw)
+	}
+}
+
+// L'onboarding : aperçu sans consommation, reprise de numérotation,
+// remplacement délibéré du modèle.
+func TestOnboardingFlow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("rendu Chrome requis")
+	}
+	t.Setenv("GOFACT_OFFLINE", "1")
+	org := testOrg(t)
+	cs := session(t)
+
+	// 1 — reprise d'une numérotation existante.
+	_, raw := call(t, cs, "initialize_numbering", map[string]any{"last_invoice_number": "2026011"})
+	if !strings.Contains(raw, "2026012") {
+		t.Fatalf("reprise attendue à 2026012 : %s", raw)
+	}
+	// L'abaisser est refusé, avec une erreur explicable.
+	res, raw := call(t, cs, "initialize_numbering", map[string]any{"last_invoice_number": "2026005"})
+	if !res.IsError || !strings.Contains(raw, "réutiliserait") {
+		t.Errorf("abaissement accepté ou erreur muette : %s", raw)
+	}
+
+	// 2 — aperçu : rien n'est consommé, le PDF SPÉCIMEN existe.
+	html := `<!doctype html><meta charset="utf-8"><title>Modèle</title>
+<style>.page{font:14px sans-serif}</style><div class="page"><h1>Facture {{NUMERO}}</h1></div>`
+	_, raw = call(t, cs, "preview_invoice", map[string]any{"html": html})
+	if !strings.Contains(raw, "apercu.pdf") {
+		t.Fatalf("aperçu attendu : %s", raw)
+	}
+	if _, err := os.Stat(filepath.Join(org.Path, "apercu.pdf")); err != nil {
+		t.Fatalf("apercu.pdf absent : %v", err)
+	}
+	if next, _ := org.NextNumber(time.Now()); next != "2026012" {
+		t.Errorf("l'aperçu a consommé un numéro : %s", next)
+	}
+
+	// 3 — première facture : le modèle est figé ; puis nouvelle mise en page
+	// assumée avec update_template.
+	spec := map[string]any{"issue_date": "2026-09-01",
+		"buyer": map[string]any{"name": "ACME SAS", "siret": "55208131700015",
+			"address": "1 rue de la Paix", "postal_code": "75002", "city": "Paris"},
+		"lines": []map[string]any{{"name": "Dev", "unit": "day", "quantity": "1.00",
+			"unit_price_ht_cents": 60000}}}
+	res, raw = call(t, cs, "create_invoice", map[string]any{"html": html, "spec": spec})
+	if res.IsError {
+		t.Fatalf("create_invoice : %s", raw)
+	}
+	if !strings.Contains(raw, "2026012") {
+		t.Errorf("numéro attendu 2026012 après reprise : %s", raw)
+	}
+
+	html2 := `<!doctype html><meta charset="utf-8"><title>Modèle v2</title>
+<style>.sheet{font:13px serif}</style><div class="sheet"><h2>FACTURE {{NUMERO}}</h2></div>`
+	res, raw = call(t, cs, "create_invoice", map[string]any{"html": html2, "spec": spec, "update_template": true})
+	if res.IsError {
+		t.Fatalf("create_invoice v2 : %s", raw)
+	}
+	tpl, _ := org.Template()
+	if !strings.Contains(tpl, "sheet") {
+		t.Error("update_template doit remplacer le modèle de référence")
+	}
+	// Et sans update_template, une mise en page différente n'est qu'un
+	// avertissement — jamais un blocage.
+	res, raw = call(t, cs, "create_invoice", map[string]any{"html": html, "spec": spec})
+	if res.IsError {
+		t.Fatalf("une dérive de mise en page ne doit pas bloquer : %s", raw)
+	}
+	if !strings.Contains(raw, "update_template") {
+		t.Errorf("l'avertissement doit orienter vers update_template : %s", raw)
 	}
 }

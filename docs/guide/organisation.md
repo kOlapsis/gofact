@@ -29,20 +29,34 @@ gofact la traite comme telle :
 
 Format des numéros : `{année}{compteur sur 3 chiffres}` — `2026001`, `2026002`…
 
+**Vous facturiez déjà avant gofact ?** Reprenez la séquence là où elle en est :
+
+```sh
+gofact org set-counter -last-number 2026011   # le prochain émis sera 2026012
+```
+
+(ou `-last-number` dès `org init`, ou l'outil MCP `initialize_numbering` en
+conversation). L'opération est journalisée et le compteur ne peut que **monter** :
+l'abaisser réutiliserait des numéros déjà émis, gofact le refuse.
+
 !!! danger "Ne modifiez jamais les compteurs à la main"
     Éditer `numerotation.json` pour « rattraper » un numéro crée précisément
-    l'irrégularité que tout ceci empêche.
+    l'irrégularité que tout ceci empêche. `set-counter` existe pour ça.
 
-## Le modèle figé
+## Le modèle de facture
 
-L'IA compose le HTML, mais une facture est un document comptable : deux factures de la
-même entité doivent se ressembler. La **première facture fige le modèle**
-(`modele-facture.html`) ; l'outil `get_invoice_template` le resert à l'IA pour chaque
-facture suivante, et `create_invoice` signale toute dérive de structure — un
-avertissement, jamais un blocage.
+La hiérarchie est claire : la **numérotation est l'invariant** — la mise en page, elle,
+peut évoluer librement. Le modèle n'existe que pour la cohérence au quotidien :
 
-Pour changer de modèle en connaissance de cause : éditez ou supprimez
-`modele-facture.html` vous-même.
+- il se **crée en conversation**, avec des aperçus PDF (`preview_invoice`, marqué
+  SPÉCIMEN, sans rien consommer) jusqu'à ce que le rendu vous convienne ;
+- la première facture le fige (`modele-facture.html`) et `get_invoice_template` le
+  resert à l'IA pour les suivantes ;
+- pour **changer de visuel** : demandez-le — l'IA itère en aperçu puis passe
+  `update_template=true` à la facture suivante, et le nouveau modèle remplace l'ancien
+  (changement journalisé) ;
+- une mise en page qui dérive *sans* que ce soit demandé n'est qu'un avertissement,
+  jamais un blocage.
 
 ## L'identité : le `.env` du dossier
 

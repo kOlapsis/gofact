@@ -27,6 +27,13 @@ le régime par défaut, mentions légales comprises. Assujetti à la TVA ? Ajout
 numéro intracommunautaire (`GOFACT_SELLER_VAT_NUMBER` dans le `.env` du dossier) et
 l'IA précisera le taux par facture.
 
+!!! warning "Vous facturiez déjà ? Reprenez votre numérotation"
+    C'est **le** point critique : la séquence doit continuer sans trou ni doublon.
+    L'IA vous demandera votre dernier numéro émis (ex. `2026011`) et gofact reprendra
+    au suivant. Au terminal : `gofact org init … -last-number 2026011`, ou plus tard
+    `gofact org set-counter -last-number 2026011`. Le compteur ne peut que monter —
+    l'abaisser réutiliserait des numéros déjà émis, et gofact le refuse.
+
 ## Première facture
 
 > « Fais-moi une facture pour ACME, 2 jours de développement à 600 € »
@@ -36,9 +43,13 @@ Déroulé réel, outil par outil :
 1. **`search_client`** — ACME est cherché dans votre historique, puis dans l'annuaire
    public des entreprises (SIRENE) : l'IA vous fait confirmer le bon candidat, avec son
    SIRET et son adresse — vous ne saisissez rien.
-2. **Composition** — l'IA rédige la facture HTML. C'est votre première : elle deviendra
-   le **modèle de référence** de l'organisation, alors dites ce que vous voulez (logo,
-   couleurs, ton). Les suivantes en repartiront à l'identique.
+2. **Composition du modèle** — c'est votre première facture, alors l'IA la conçoit
+   *avec vous* : dites ce que vous voulez (logo, couleurs, ton, mentions), elle vous
+   montre un **PDF d'aperçu** (`preview_invoice` — marqué SPÉCIMEN, rien n'est
+   consommé) et itère jusqu'à ce que le rendu vous plaise. Cette facture deviendra le
+   modèle de référence ; les suivantes en repartiront. Et rien n'est gravé dans le
+   marbre : « change mon modèle, plus sobre » fonctionne à tout moment — l'IA itère en
+   aperçu puis officialise le nouveau visuel à la facture suivante.
 3. **`preview_next_number`** — l'IA vous annonce le numéro (ex. `2026001`) et
    récapitule : client, lignes, totaux. Le numéro n'est pas encore consommé.
 4. **Votre accord**, puis **`create_invoice`** — en une transaction : numéro attribué,
