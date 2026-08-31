@@ -25,7 +25,7 @@ const envChrome = "GOFACT_CHROME"
 // detectChrome renvoie le chemin d'un navigateur utilisable, ou "" si aucun n'est
 // trouvé — auquel cas chromedp tentera sa propre détection.
 func detectChrome() string {
-	if p := env(envChrome); p != "" {
+	if p := strings.TrimSpace(os.Getenv(envChrome)); p != "" {
 		return p
 	}
 	for _, c := range browserCandidates() {

@@ -13,15 +13,18 @@ import (
 	"strings"
 )
 
-// Load lit un fichier .env et exporte ses clés dans l'environnement, sans jamais
-// écraser une variable déjà définie. Un fichier absent n'est pas une erreur.
-func Load(path string) error {
+// Parse lit un fichier .env et renvoie ses clés sans toucher à l'environnement
+// du processus. C'est la forme qui convient à un serveur qui sert plusieurs
+// organisations : chacune garde son fichier, aucune ne fuit dans les autres.
+// Un fichier absent n'est pas une erreur et renvoie une table vide.
+func Parse(path string) (map[string]string, error) {
+	vars := map[string]string{}
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return vars, nil
 		}
-		return fmt.Errorf("dotenv: lecture %s: %w", path, err)
+		return nil, fmt.Errorf("dotenv: lecture %s: %w", path, err)
 	}
 	defer func() { _ = f.Close() }()
 
@@ -36,13 +39,24 @@ func Load(path string) error {
 		if !ok {
 			continue
 		}
-		k = strings.TrimSpace(k)
-		v = strings.Trim(strings.TrimSpace(v), `"'`)
+		vars[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), `"'`)
+	}
+	return vars, sc.Err()
+}
+
+// Load lit un fichier .env et exporte ses clés dans l'environnement, sans jamais
+// écraser une variable déjà définie. Un fichier absent n'est pas une erreur.
+func Load(path string) error {
+	vars, err := Parse(path)
+	if err != nil {
+		return err
+	}
+	for k, v := range vars {
 		if _, set := os.LookupEnv(k); !set {
 			_ = os.Setenv(k, v)
 		}
 	}
-	return sc.Err()
+	return nil
 }
 
 // LoadDefault charge le .env explicite s'il est fourni, sinon les emplacements

@@ -1,0 +1,104 @@
+package workspace
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+)
+
+// Modèle de facture de l'organisation. Le HTML est généré par une IA — c'est le
+// choix du produit — mais une facture est un document comptable archivé dix
+// ans : deux factures de la même entité ne doivent pas se ressembler « à peu
+// près ». Le compromis : le dossier FIGE le HTML de la première facture comme
+// modèle de référence, qui est resservi à l'IA pour chaque facture suivante.
+// Un contrôle de dérive compare la STRUCTURE (pas le contenu, qui change à
+// chaque facture) et produit un avertissement — jamais un blocage :
+// l'utilisateur reste souverain sur son modèle.
+
+// TemplateFile est le modèle de référence figé de l'organisation.
+const TemplateFile = "modele-facture.html"
+
+// Template renvoie le modèle figé, ou "" si aucune facture n'a encore fixé le
+// modèle de ce dossier.
+func (o *Org) Template() (string, error) {
+	raw, err := os.ReadFile(filepath.Join(o.Path, TemplateFile))
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
+}
+
+// FreezeTemplate fige html comme modèle de référence si le dossier n'en a pas
+// encore. Ne remplace JAMAIS un modèle existant : pour en changer, l'utilisateur
+// supprime ou édite le fichier lui-même, en connaissance de cause.
+func (o *Org) FreezeTemplate(html string) (frozen bool, err error) {
+	path := filepath.Join(o.Path, TemplateFile)
+	if _, err := os.Stat(path); err == nil {
+		return false, nil
+	}
+	if err := os.WriteFile(path, []byte(html), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// TemplateDrift compare la structure de html au modèle figé. Renvoie "" si le
+// dossier n'a pas de modèle ou si la structure correspond, sinon un
+// avertissement destiné à être relayé (par une IA notamment) à l'utilisateur.
+func (o *Org) TemplateDrift(html string) (string, error) {
+	ref, err := o.Template()
+	if err != nil || ref == "" {
+		return "", err
+	}
+	if Fingerprint(ref) == Fingerprint(html) {
+		return "", nil
+	}
+	return fmt.Sprintf("la structure de ce HTML diffère du modèle de référence (%s) : "+
+		"les factures de cette organisation risquent de ne plus se ressembler. "+
+		"Repartir du modèle, ou le remplacer volontairement en éditant ce fichier.", TemplateFile), nil
+}
+
+var (
+	classAttr = regexp.MustCompile(`class="([^"]*)"`)
+	tagOpen   = regexp.MustCompile(`<([a-zA-Z][a-zA-Z0-9]*)[\s>]`)
+	styleTag  = regexp.MustCompile(`(?s)<style[^>]*>(.*?)</style>`)
+)
+
+// Fingerprint résume la STRUCTURE d'un HTML de facture : l'ensemble des classes
+// CSS, l'inventaire des balises et le contenu des feuilles de style — mais pas
+// le texte, qui change légitimement d'une facture à l'autre.
+func Fingerprint(html string) string {
+	classes := map[string]bool{}
+	for _, m := range classAttr.FindAllStringSubmatch(html, -1) {
+		for _, c := range strings.Fields(m[1]) {
+			classes[c] = true
+		}
+	}
+	tags := map[string]int{}
+	for _, m := range tagOpen.FindAllStringSubmatch(html, -1) {
+		tags[strings.ToLower(m[1])]++
+	}
+
+	var parts []string
+	for c := range classes {
+		parts = append(parts, "c:"+c)
+	}
+	for t, n := range tags {
+		parts = append(parts, fmt.Sprintf("t:%s=%d", t, n))
+	}
+	sort.Strings(parts)
+	for _, m := range styleTag.FindAllStringSubmatch(html, -1) {
+		parts = append(parts, "s:"+strings.Join(strings.Fields(m[1]), " "))
+	}
+
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\n")))
+	return hex.EncodeToString(sum[:])
+}

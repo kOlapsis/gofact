@@ -126,18 +126,17 @@ func partyToCII(p PartySpec, fallbackCountry string) Party {
 }
 
 // sellerParty résout le vendeur : bloc "seller" du JSON s'il est fourni, sinon
-// identité configurée dans l'environnement. Aucune identité n'est codée en dur.
-func sellerParty(s *PartySpec) (Party, error) {
+// l'identité de la configuration. Aucune identité n'est codée en dur.
+func sellerParty(s *PartySpec, def PartySpec) (Party, error) {
 	spec := s
 	if spec == nil || strings.TrimSpace(spec.Name) == "" {
-		fromEnv := sellerFromEnv()
-		if fromEnv.Name == "" {
+		if def.Name == "" {
 			return Party{}, fmt.Errorf(
 				"facturx: vendeur non configuré — renseignez %s (et les autres GOFACT_SELLER_*) "+
 					"dans l'environnement ou un fichier .env, ou fournissez un bloc \"seller\" dans le JSON",
 				envSellerName)
 		}
-		spec = &fromEnv
+		spec = &def
 	}
 	p := partyToCII(*spec, "FR")
 	// Vendeur exonéré sans n° TVA : BT-32 (scheme FC) = SIREN (BR-E-02).
@@ -186,9 +185,17 @@ func unitCode(unit string) string {
 	}
 }
 
-// ToInvoice projette la spec (avec ses valeurs par défaut) vers le modèle CII,
-// calcule les totaux et le sous-total de TVA. Les montants sont en centimes.
+// ToInvoice projette la spec vers le modèle CII avec les défauts lus dans
+// l'environnement du processus — le comportement historique du CLI.
 func (s Spec) ToInvoice() (Invoice, error) {
+	return s.ToInvoiceWith(ConfigFromEnv())
+}
+
+// ToInvoiceWith projette la spec (avec les défauts de cfg) vers le modèle CII,
+// calcule les totaux et le sous-total de TVA. Les montants sont en centimes.
+// C'est le point d'entrée pour un processus servant plusieurs organisations :
+// chaque appel reçoit la configuration de l'entité émettrice concernée.
+func (s Spec) ToInvoiceWith(cfg Config) (Invoice, error) {
 	docType := DocInvoice
 	if strings.EqualFold(strings.TrimSpace(s.Type), "credit_note") || s.Type == string(DocCreditNote) {
 		docType = DocCreditNote
@@ -285,24 +292,24 @@ func (s Spec) ToInvoice() (Invoice, error) {
 	if vat.Exempt {
 		sub.ExemptionReason = vat.Mention
 		if sub.ExemptionReason == "" {
-			sub.ExemptionReason = envOr(envVATExemptMention, fallbackVATMention)
+			sub.ExemptionReason = cfg.VATExemptMention
 		}
 		sub.ExemptionReasonCode = vat.ExemptionCode
 		if sub.ExemptionReasonCode == "" {
-			sub.ExemptionReasonCode = envOr(envVATExemptCode, fallbackVATExCode)
+			sub.ExemptionReasonCode = cfg.VATExemptReasonCode
 		}
 	}
 
 	grand := lineTotal + taxTotal
 
-	seller, err := sellerParty(s.Seller)
+	seller, err := sellerParty(s.Seller, cfg.Seller)
 	if err != nil {
 		return Invoice{}, err
 	}
 
 	iban := strings.ReplaceAll(strings.TrimSpace(s.IBAN), " ", "")
 	if iban == "" {
-		iban = defaultIBAN()
+		iban = cfg.IBAN
 	}
 
 	notes := defaultNotes
