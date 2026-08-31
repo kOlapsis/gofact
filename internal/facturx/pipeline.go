@@ -40,8 +40,8 @@ type Result struct {
 	Report    string // extrait du rapport de validation
 }
 
-// Generate exécute la chaîne complète : HTML → PDF (Chrome) → PDF/A-3 (Ghostscript)
-// → embarquement XML CII + validation (Mustang).
+// Generate exécute la chaîne complète : HTML → PDF (Chrome) → PDF/A-3 +
+// embarquement du XML CII (Go pur) → validation optionnelle.
 func Generate(ctx context.Context, inv Invoice, opt Options) (Result, error) {
 	var res Result
 	res.OutPath = opt.OutPath
@@ -75,15 +75,14 @@ func Generate(ctx context.Context, inv Invoice, opt Options) (Result, error) {
 	}
 	logv(opt, "✓ PDF rendu via Chrome (%d octets)", len(rawPDF))
 
-	// 3 — PDF/A-3 + embarquement verbatim du XML (Ghostscript + zugferd.ps)
-	// On embarque le XML tel quel : contrairement à un assembleur qui re-sérialise
-	// via son modèle (et perd les champs étendus comme les adresses de routage PDP,
-	// BT-34/BT-49), gs/zugferd.ps insère le fichier octet pour octet.
+	// 3 — PDF/A-3 + embarquement verbatim du XML (Go pur, cf. assemble.go)
+	// On embarque le XML tel quel : un assembleur qui le re-sérialise via son
+	// modèle perdrait les champs étendus (adresses de routage PDP, BT-34/BT-49).
 	xmlPath := filepath.Join(work, "factur-x.xml")
 	if err := os.WriteFile(xmlPath, xml, 0o644); err != nil {
 		return res, fmt.Errorf("facturx: écriture XML temp: %w", err)
 	}
-	if err := embedFacturX(ctx, work, basePDF, xmlPath, opt.OutPath, inv.IssueDate); err != nil {
+	if err := embedFacturX(basePDF, xmlPath, opt.OutPath, inv.IssueDate); err != nil {
 		return res, err
 	}
 	logv(opt, "✓ Factur-X assemblé (PDF/A-3, XML verbatim) → %s", opt.OutPath)
@@ -213,63 +212,6 @@ func detectChrome() string {
 // facturxConformance est le niveau de conformité inscrit dans le XMP Factur-X.
 // Aligné sur le guideline (BT-24) du XML CII produit par BuildCII.
 const facturxConformance = "EN 16931"
-
-// embedFacturX produit le PDF/A-3 Factur-X final en une passe Ghostscript :
-// conversion PDF/A-3 (OutputIntent sRGB) + embarquement VERBATIM du XML via le
-// script zugferd.ps fourni avec Ghostscript (support Factur-X natif). Le XML est
-// inséré octet pour octet — aucune re-sérialisation, les adresses de routage PDP
-// (BT-34/BT-49) sont préservées.
-func embedFacturX(ctx context.Context, work, inPDF, xmlPath, out string, issue time.Time) error {
-	iccPath := filepath.Join(work, "srgb.icc")
-	if err := os.WriteFile(iccPath, srgbICC, 0o644); err != nil {
-		return fmt.Errorf("facturx: écriture ICC: %w", err)
-	}
-	zugferd, err := locateZugferdPS()
-	if err != nil {
-		return err
-	}
-	dt := "D:" + issue.Format("20060102") + "000000"
-
-	args := []string{
-		"-dPDFA=3", "-dBATCH", "-dNOPAUSE", "-dNOOUTERSAVE", "-q",
-		"-sColorConversionStrategy=RGB", "-sProcessColorModel=DeviceRGB",
-		"-sDEVICE=pdfwrite", "-dPDFACompatibilityPolicy=1",
-		"--permit-file-read=" + work + string(os.PathSeparator),
-		"--permit-file-read=" + xmlPath,
-		"-sZUGFeRDXMLFile=" + xmlPath,
-		"-sZUGFeRDProfile=" + iccPath,
-		"-sZUGFeRDVersion=2p1", // ⇒ profil Factur-X (factur-x.xml, préfixe fx)
-		"-sZUGFeRDConformanceLevel=" + facturxConformance,
-		"-sZUGFeRDDateTime=" + dt,
-		"-o", out,
-		zugferd, inPDF,
-	}
-	cmd := exec.CommandContext(ctx, "gs", args...)
-	if outBytes, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("facturx: Ghostscript/zugferd.ps: %w\n%s", err, outBytes)
-	}
-	if _, err := os.Stat(out); err != nil {
-		return fmt.Errorf("facturx: Ghostscript n'a pas produit de sortie: %w", err)
-	}
-	return nil
-}
-
-// locateZugferdPS trouve le script zugferd.ps livré avec Ghostscript (support
-// Factur-X). Il vit dans le répertoire lib/ de l'installation gs.
-func locateZugferdPS() (string, error) {
-	patterns := []string{
-		"/usr/share/ghostscript/*/lib/zugferd.ps",
-		"/usr/share/ghostscript/*/Resource/Init/zugferd.ps",
-		"/usr/local/share/ghostscript/*/lib/zugferd.ps",
-		"/opt/homebrew/share/ghostscript/*/lib/zugferd.ps",
-	}
-	for _, p := range patterns {
-		if m, _ := filepath.Glob(p); len(m) > 0 {
-			return m[len(m)-1], nil // dernière = version la plus récente
-		}
-	}
-	return "", fmt.Errorf("facturx: zugferd.ps introuvable (support Factur-X de Ghostscript ≥ 10.x requis)")
-}
 
 // ensureMustang renvoie le chemin du jar Mustang, le téléchargeant dans le cache
 // utilisateur s'il est absent.
