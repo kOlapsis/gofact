@@ -230,6 +230,66 @@ func TestClientsFromHistory(t *testing.T) {
 	}
 }
 
+// Un client déjà facturé doit être retrouvé quelle que soit la façon dont son
+// nom est écrit : sinon l'appelant se rabat sur l'annuaire public, où un
+// homonyme peut être facturé à sa place.
+func TestFindClientNormalisation(t *testing.T) {
+	org := newOrg(t)
+	write := func(name, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(org.Path, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("2026001 - NeoDTx.json", `{"number":"2026001","issue_date":"2026-01-10",
+	  "buyer":{"name":"Neo DTx","siret":"94522621500016","city":"Yvré-l'Évêque"},
+	  "lines":[{"name":"x","unit_price_ht_cents":100}]}`)
+	write("2026002 - BSTEAM.json", `{"number":"2026002","issue_date":"2026-02-10",
+	  "buyer":{"name":"BS'TEAM","siren":"891720971"},
+	  "lines":[{"name":"x","unit_price_ht_cents":100}]}`)
+	write("2026003 - Elevage.json", `{"number":"2026003","issue_date":"2026-03-10",
+	  "buyer":{"name":"Élevage Créüs","siren":"111222333"},
+	  "lines":[{"name":"x","unit_price_ht_cents":100}]}`)
+
+	for _, tc := range []struct {
+		query string
+		want  string // nom attendu ; "" = aucun résultat
+	}{
+		{"Neo DTx", "Neo DTx"},             // orthographe exacte
+		{"NeoDTx", "Neo DTx"},              // espace omise — le cas qui échouait
+		{"neodtx", "Neo DTx"},              // casse
+		{"neo-dtx", "Neo DTx"},             // séparateur exotique
+		{"94522621500016", "Neo DTx"},      // SIRET
+		{"945226215", "Neo DTx"},           // SIREN, alors que l'historique n'a que le SIRET
+		{"945 226 215", "Neo DTx"},         // SIREN espacé
+		{"bsteam", "BS'TEAM"},              // apostrophe omise
+		{"BS TEAM", "BS'TEAM"},             // apostrophe remplacée par une espace
+		{"891720971", "BS'TEAM"},           // SIREN exact
+		{"elevage creus", "Élevage Créüs"}, // accents omis
+		{"Élevage", "Élevage Créüs"},       // accents présents
+		{"introuvable", ""},                // pas de faux positif
+		{"", ""},                           // requête vide : aucun résultat
+	} {
+		found, err := org.FindClient(tc.query)
+		if err != nil {
+			t.Fatalf("FindClient(%q): %v", tc.query, err)
+		}
+		if tc.want == "" {
+			if len(found) != 0 {
+				t.Errorf("FindClient(%q) = %d résultat(s), want 0", tc.query, len(found))
+			}
+			continue
+		}
+		if len(found) != 1 {
+			t.Errorf("FindClient(%q) = %d résultat(s), want 1 (%s)", tc.query, len(found), tc.want)
+			continue
+		}
+		if found[0].Name != tc.want {
+			t.Errorf("FindClient(%q) = %q, want %q", tc.query, found[0].Name, tc.want)
+		}
+	}
+}
+
 func TestTemplateFreezeAndDrift(t *testing.T) {
 	org := newOrg(t)
 	ref := `<style>.page{width:210mm}</style><div class="page"><h1>Facture {{NUMERO}}</h1><p class="total">100 €</p></div>`
