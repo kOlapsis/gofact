@@ -47,6 +47,9 @@ func main() {
 		case "install":
 			runInstall(os.Args[2:])
 			return
+		case "version":
+			fmt.Println("gofact", version)
+			return
 		}
 	}
 	runGenerate(os.Args[1:])
