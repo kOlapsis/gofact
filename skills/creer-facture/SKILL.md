@@ -32,6 +32,9 @@ recalcule rien, n'écrit rien et n'invente rien que les outils savent faire.
 ### 1 — L'organisation
 `list_organizations`. Plusieurs → demander laquelle. Aucune → collecter l'identité auprès
 de l'utilisateur (nom, SIRET, adresse, IBAN — **ne rien inventer**) et `init_organization`.
+**Toujours demander si des factures ont déjà été émises cette année** : si oui, reprendre
+la séquence (`last_invoice_number`, ou `initialize_numbering` sur un dossier existant).
+La numérotation continue et sans trou est *le* point critique de tout l'outil.
 
 ### 2 — Le client
 `search_client` avec le nom donné. L'outil cherche d'abord l'historique (coordonnées
@@ -52,13 +55,19 @@ devis de référence le cas échéant.
 
 ### 4 — Le HTML
 `get_invoice_template` :
-- **Modèle figé existant** → repartir de ce HTML tel quel, n'adapter que les contenus
-  (client, lignes, montants, dates). Les factures d'une même entité doivent se ressembler.
-- **Pas de modèle** (première facture) → composer une facture A4 soignée : CSS embarqué,
-  **polices système** (pas de webfont), **pas de `<a href>`**, logo vectoriel inline s'il
-  y en a un, mentions légales françaises (pénalités de retard 3× taux légal, indemnité de
-  recouvrement 40 €, escompte : néant), et le régime de TVA de l'organisation.
-- Dans les deux cas : le jeton `{{NUMERO}}` à l'emplacement du numéro — jamais un numéro
+- **Modèle existant** → en repartir, n'adapter que les contenus (client, lignes,
+  montants, dates).
+- **Pas de modèle** (première fois) → c'est l'**onboarding du modèle**, à faire avec
+  l'utilisateur : demander ses envies (logo, couleurs, ton, mentions), composer une
+  facture A4 soignée — CSS embarqué, **polices système** (pas de webfont), **pas de
+  `<a href>`**, logo vectoriel inline, mentions légales françaises (pénalités de retard
+  3× taux légal, indemnité de recouvrement 40 €, escompte : néant), régime de TVA de
+  l'organisation — puis la montrer avec **`preview_invoice`** et itérer jusqu'à ce que
+  l'utilisateur soit satisfait. Sa première facture figera ce modèle.
+- La mise en page **peut évoluer** ensuite : si l'utilisateur veut changer de visuel,
+  itérer avec `preview_invoice` puis `create_invoice` avec `update_template=true`.
+  Ce qui ne bouge jamais, c'est la numérotation — pas le visuel.
+- Dans tous les cas : le jeton `{{NUMERO}}` à l'emplacement du numéro — jamais un numéro
   écrit à la main.
 
 ### 5 — Confirmation puis création

@@ -23,6 +23,8 @@ func runOrg(argv []string) {
 		runOrgInit(argv[1:])
 	case "show":
 		runOrgShow(argv[1:])
+	case "set-counter":
+		runOrgSetCounter(argv[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "erreur : sous-commande org inconnue %q\n", argv[0])
 		orgUsage()
@@ -34,7 +36,9 @@ func orgUsage() {
 	fmt.Fprintln(os.Stderr, `usage :
   gofact org list                       # organisations découvertes
   gofact org init -path DIR [identité]  # crée un dossier d'organisation
-  gofact org show [-org DIR]            # fiche d'une organisation (sans secrets)`)
+  gofact org show [-org DIR]            # fiche d'une organisation (sans secrets)
+  gofact org set-counter -last-number 2026011 [-org DIR]
+                                        # reprend une numérotation existante`)
 }
 
 func runOrgList(argv []string) {
@@ -71,6 +75,7 @@ func runOrgInit(argv []string) {
 	cp := fs.String("postal-code", "", "code postal")
 	city := fs.String("city", "", "ville")
 	iban := fs.String("iban", "", "IBAN de règlement")
+	lastNumber := fs.String("last-number", "", "dernier numéro déjà émis (ex. 2026011) si des factures existent")
 	_ = fs.Parse(argv)
 
 	if *path == "" {
@@ -88,12 +93,13 @@ func runOrgInit(argv []string) {
 		"GOFACT_SELLER_POSTAL_CODE": *cp,
 		"GOFACT_SELLER_CITY":        *city,
 		"GOFACT_PAYEE_IBAN":         *iban,
-	})
+	}, *lastNumber)
 	if err != nil {
 		fail(err)
 	}
 	fmt.Printf("✓ Organisation « %s » créée : %s\n", org.Name(), org.Path)
-	fmt.Println("  Registre de numérotation initialisé ; identité dans .env (à compléter au besoin).")
+	next, _ := org.NextNumber(time.Now())
+	fmt.Printf("  Registre initialisé — prochain numéro : %s. Identité dans .env (à compléter au besoin).\n", next)
 }
 
 func runOrgShow(argv []string) {
@@ -138,4 +144,34 @@ func yesNo(b bool) string {
 		return "oui"
 	}
 	return "non"
+}
+
+// runOrgSetCounter reprend une numérotation existante sur un dossier déjà créé.
+func runOrgSetCounter(argv []string) {
+	fs := flag.NewFlagSet("gofact org set-counter", flag.ExitOnError)
+	dir := fs.String("org", "", "dossier de l'organisation (défaut : découverte)")
+	lastNumber := fs.String("last-number", "", "dernier numéro déjà émis (ex. 2026011) — requis")
+	_ = fs.Parse(argv)
+
+	if *lastNumber == "" {
+		fmt.Fprintln(os.Stderr, "erreur : -last-number est requis")
+		fs.Usage()
+		os.Exit(2)
+	}
+	orgs, err := workspace.Discover(*dir)
+	if err != nil {
+		fail(err)
+	}
+	if len(orgs) != 1 {
+		fail(fmt.Errorf("préciser l'organisation avec -org (trouvées : %d)", len(orgs)))
+	}
+	year, counter, err := workspace.ParseNumber(*lastNumber)
+	if err != nil {
+		fail(err)
+	}
+	if err := orgs[0].RaiseCounter(year, counter); err != nil {
+		fail(err)
+	}
+	next, _ := orgs[0].NextNumber(time.Now())
+	fmt.Printf("✓ Numérotation reprise — prochain numéro : %s\n", next)
 }

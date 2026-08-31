@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -40,6 +41,59 @@ type RegistryEntry struct {
 	Statut       string `json:"statut"`
 	Fichier      string `json:"fichier"`
 	DevisRef     string `json:"devis_ref,omitempty"`
+}
+
+// ParseNumber décompose un numéro {YYYY}{NNN} en année et compteur.
+func ParseNumber(num string) (year, counter int, err error) {
+	num = strings.TrimSpace(num)
+	if len(num) != 7 {
+		return 0, 0, fmt.Errorf("workspace: numéro %q invalide — format attendu {YYYY}{NNN}, ex. 2026011", num)
+	}
+	if year, err = strconv.Atoi(num[:4]); err != nil || year < 2000 || year > 2200 {
+		return 0, 0, fmt.Errorf("workspace: numéro %q invalide — l'année %q n'est pas plausible", num, num[:4])
+	}
+	if counter, err = strconv.Atoi(num[4:]); err != nil {
+		return 0, 0, fmt.Errorf("workspace: numéro %q invalide — compteur %q non numérique", num, num[4:])
+	}
+	return year, counter, nil
+}
+
+// RaiseCounter reprend une numérotation existante : le compteur de l'année
+// passe à lastUsed — le prochain numéro émis sera lastUsed+1. C'est l'outil de
+// migration quand des factures ont déjà été émises ailleurs.
+//
+// Le compteur ne peut que MONTER : l'abaisser réutiliserait des numéros déjà
+// émis, ce qui est une irrégularité comptable. L'opération est journalisée.
+func (o *Org) RaiseCounter(year, lastUsed int) error {
+	if lastUsed < 0 {
+		return fmt.Errorf("workspace: compteur %d invalide", lastUsed)
+	}
+	unlock, err := o.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	reg, err := o.readRegistry()
+	if err != nil {
+		return err
+	}
+	key := strconv.Itoa(year)
+	if current := reg.counters[key]; lastUsed < current {
+		return fmt.Errorf("workspace: le compteur %d est déjà à %d — l'abaisser à %d réutiliserait "+
+			"des numéros déjà émis. Si l'historique est erroné, corriger les factures concernées, "+
+			"pas le compteur", year, current, lastUsed)
+	} else if lastUsed == current {
+		return nil // déjà en place : idempotent
+	}
+	reg.counters[key] = lastUsed
+	if err := o.writeRegistry(reg); err != nil {
+		return err
+	}
+	return o.Journal("counter_init", map[string]any{
+		"year": year, "last_used": lastUsed,
+		"note": "reprise d'une numérotation existante — factures antérieures émises hors gofact",
+	})
 }
 
 // NextNumber renvoie le prochain numéro SANS le consommer — pour l'annoncer à

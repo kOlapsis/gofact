@@ -132,8 +132,10 @@ func Register(path string) error {
 }
 
 // Init crée un nouveau dossier d'organisation : registre vierge et .env
-// d'identité. Refuse d'écraser un dossier déjà initialisé.
-func Init(path string, identity map[string]string) (*Org, error) {
+// d'identité. Refuse d'écraser un dossier déjà initialisé. lastNumber, s'il est
+// non vide (ex. "2026011"), reprend une numérotation existante : le prochain
+// numéro émis sera le suivant.
+func Init(path string, identity map[string]string, lastNumber string) (*Org, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -177,7 +179,20 @@ func Init(path string, identity map[string]string) (*Org, error) {
 	if err := Register(abs); err != nil {
 		return nil, err
 	}
-	return Open(abs)
+	org, err := Open(abs)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(lastNumber) != "" {
+		year, counter, err := ParseNumber(lastNumber)
+		if err != nil {
+			return nil, err
+		}
+		if err := org.RaiseCounter(year, counter); err != nil {
+			return nil, err
+		}
+	}
+	return org, nil
 }
 
 // identityKeys est l'ordre d'écriture des clés d'identité dans le .env.
