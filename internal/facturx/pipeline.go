@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -124,9 +123,12 @@ func renderHTML(ctx context.Context, htmlPath, chromePath string) ([]byte, error
 	if chromePath == "" {
 		chromePath = detectChrome()
 	}
-	if chromePath != "" {
-		opts = append(opts, chromedp.ExecPath(chromePath))
+	if chromePath == "" {
+		// Échouer ici avec une explication vaut mieux que de laisser chromedp
+		// remonter une erreur de connexion incompréhensible.
+		return nil, chromeMissingError()
 	}
+	opts = append(opts, chromedp.ExecPath(chromePath))
 
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(ctx, opts...)
 	defer cancelAlloc()
@@ -179,31 +181,6 @@ func renderHTML(ctx context.Context, htmlPath, chromePath string) ([]byte, error
 		return nil, fmt.Errorf("facturx: rendu Chrome: %w", err)
 	}
 	return pdf, nil
-}
-
-// detectChrome privilégie un Chrome/Chromium « classique » (deb) au chromium snap,
-// ce dernier étant confiné et incapable de lire des fichiers hors de $HOME (/tmp…).
-func detectChrome() string {
-	candidates := []string{
-		"/usr/bin/google-chrome",
-		"/usr/bin/google-chrome-stable",
-		"/opt/google/chrome/chrome",
-		"/usr/bin/chromium",
-		"/usr/bin/chromium-browser",
-	}
-	for _, c := range candidates {
-		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
-			// Évite le wrapper snap (lien vers /snap/…) qui est confiné.
-			if real, err := filepath.EvalSymlinks(c); err == nil && strings.HasPrefix(real, "/snap/") {
-				continue
-			}
-			return c
-		}
-	}
-	if p, err := exec.LookPath("google-chrome"); err == nil {
-		return p
-	}
-	return "" // laisse chromedp tenter sa propre détection
 }
 
 // facturxConformance est le niveau de conformité inscrit dans le XMP Factur-X.

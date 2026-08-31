@@ -29,6 +29,11 @@ Factur-X  ──auto-contrôle▶ relecture    (structure + intégrité du XML e
 
 - **Chrome, Edge, Brave ou Chromium** — rendu HTML → PDF
 
+Détecté automatiquement sur Linux, macOS et Windows (où **Edge** est
+préinstallé, donc rien à faire). Les paquets confinés — snap, flatpak — sont
+écartés : ils ne peuvent pas lire les fichiers temporaires que gofact leur
+soumet. Pour désigner un exécutable précis : `GOFACT_CHROME` ou `-chrome`.
+
 L'assemblage PDF/A-3 est fait en Go (pdfcpu) : ni Ghostscript, ni Java, ni
 téléchargement au premier lancement. Le profil ICC sRGB est embarqué dans le
 binaire.
@@ -190,9 +195,8 @@ contient des données réelles.
 
 ## Limites connues
 
-- Le rendu repose sur Chrome ; le chromium **snap** est ignoré (confiné, ne lit
-  pas hors de `$HOME`). La détection ne connaît pour l'instant que des chemins
-  Linux.
+- Le rendu repose sur un navigateur Blink ; les paquets confinés (snap,
+  flatpak) sont ignorés car ils ne lisent pas hors de `$HOME`.
 - Mono-taux de TVA. Le multi-taux n'est pas géré.
 - Devise ≠ EUR : la contre-valeur TVA en EUR (BT-111) doit être fournie en amont
   (champ `VATEur` du modèle) ; non exposé dans le JSON pour l'instant.
