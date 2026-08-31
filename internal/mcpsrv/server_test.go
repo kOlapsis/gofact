@@ -85,8 +85,8 @@ func TestToolAnnotations(t *testing.T) {
 		byName[tool.Name] = tool
 	}
 	for _, name := range []string{"list_organizations", "get_organization", "get_invoice_template",
-		"search_client", "preview_next_number", "list_invoices", "create_invoice",
-		"send_invoice", "get_invoice_status", "init_organization"} {
+		"search_client", "find_routing_address", "preview_next_number", "list_invoices",
+		"create_invoice", "send_invoice", "get_invoice_status", "init_organization"} {
 		if byName[name] == nil {
 			t.Errorf("outil %s absent", name)
 		}
@@ -112,6 +112,7 @@ func TestFullInvoiceFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("rendu Chrome requis")
 	}
+	t.Setenv("GOFACT_OFFLINE", "1") // pas de réseau en test : historique seul
 	org := testOrg(t)
 	cs := session(t)
 
