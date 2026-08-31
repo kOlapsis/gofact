@@ -1,56 +1,58 @@
 # gofact
 
-Petit binaire Go qui transforme une **facture HTML** (prête à imprimer) en
-**Factur-X** : un PDF/A-3 conforme avec le XML CII EN 16931 embarqué, et le
-dépose optionnellement sur une plateforme de dématérialisation partenaire (PDP).
+> 🇫🇷 [Version française](README-FR.md)
 
-Pensé pour la facturation d'un indépendant ou d'une petite structure française
-(réforme de la facturation électronique), et livré aussi comme **plugin Claude
-Code** avec le skill `creer-facture`.
+Small Go binary that turns a **print-ready HTML invoice** into
+**Factur-X**: a compliant PDF/A-3 with the CII EN 16931 XML embedded, and
+optionally submits it to a French e-invoicing platform (PDP —
+*plateforme de dématérialisation partenaire*).
 
-## Chaîne
+Built for the invoicing of a French freelancer or small business (the French
+e-invoicing reform), and also shipped as a **Claude Code plugin** with the
+`creer-facture` skill.
+
+## Pipeline
 
 ```
-JSON  ──règles EN 16931──▶  refus si non conforme (avant toute production)
+JSON  ──EN 16931 rules──▶  rejected if non-compliant (before producing anything)
       ──gofact──────────▶  factur-x.xml (CII EN 16931)
-HTML  ──Chrome headless─▶  PDF          (rendu identique au Ctrl+P, arrière-plans inclus)
-PDF + XML ──Go pur──────▶  Factur-X     (PDF/A-3 + embarquement VERBATIM du XML)
-Factur-X  ──auto-contrôle▶ relecture    (structure + intégrité du XML embarqué)
+HTML  ──headless Chrome─▶  PDF          (identical to Ctrl+P output, backgrounds included)
+PDF + XML ──pure Go─────▶  Factur-X     (PDF/A-3 + VERBATIM embedding of the XML)
+Factur-X  ──self-check──▶  re-read      (structure + integrity of the embedded XML)
 ```
 
-> **Embarquement verbatim — important.** Le XML est inséré **octet pour octet**.
-> Un assembleur qui le re-sérialise via son propre modèle **perd les champs
-> étendus**, en particulier les adresses électroniques de routage PDP
-> (BT-34/BT-49). gofact ne retouche jamais le XML qu'il a produit.
+> **Verbatim embedding — important.** The XML is embedded **byte for byte**.
+> An assembler that re-serializes it through its own model **loses extended
+> fields**, in particular the PDP electronic routing addresses (BT-34/BT-49).
+> gofact never touches the XML it has produced.
 
-## Dépendances système
+## System dependencies
 
-**Un navigateur, et c'est tout.**
+**A browser, and that's it.**
 
-- **Chrome, Edge, Brave ou Chromium** — rendu HTML → PDF
+- **Chrome, Edge, Brave or Chromium** — HTML → PDF rendering
 
-Détecté automatiquement sur Linux, macOS et Windows (où **Edge** est
-préinstallé, donc rien à faire). Les paquets confinés — snap, flatpak — sont
-écartés : ils ne peuvent pas lire les fichiers temporaires que gofact leur
-soumet. Pour désigner un exécutable précis : `GOFACT_CHROME` ou `-chrome`.
+Auto-detected on Linux, macOS and Windows (where **Edge** is preinstalled, so
+nothing to do). Sandboxed packages — snap, flatpak — are skipped: they cannot
+read the temporary files gofact hands them. To point at a specific executable:
+`GOFACT_CHROME` or `-chrome`.
 
-L'assemblage PDF/A-3 est fait en Go (pdfcpu) : ni Ghostscript, ni Java, ni
-téléchargement au premier lancement. Le profil ICC sRGB est embarqué dans le
-binaire.
+The PDF/A-3 assembly is done in Go (pdfcpu): no Ghostscript, no Java, no
+first-run download. The sRGB ICC profile is embedded in the binary.
 
-## Conformité
+## Compliance
 
-Deux vérifications, à deux moments différents :
+Two checks, at two different moments:
 
-- **Règles métier EN 16931**, appliquées sur le modèle **avant** de produire quoi
-  que ce soit. gofact refuse d'émettre une facture qu'il sait non conforme, avec
-  l'identifiant de la règle (`BR-50`, `BR-CO-15`…) et le champ à corriger.
-- **Auto-contrôle du PDF**, après écriture : relecture du fichier, vérification
-  des structures Factur-X (`/AF`, `/OutputIntents`, XMP, `/EmbeddedFiles`) et
-  comparaison octet pour octet du XML embarqué avec celui qui a été généré.
+- **EN 16931 business rules**, applied on the model **before** producing
+  anything. gofact refuses to issue an invoice it knows to be non-compliant,
+  reporting the rule identifier (`BR-50`, `BR-CO-15`…) and the field to fix.
+- **PDF self-check**, after writing: the file is re-read, the Factur-X
+  structures are verified (`/AF`, `/OutputIntents`, XMP, `/EmbeddedFiles`) and
+  the embedded XML is compared byte for byte with the one that was generated.
 
-La conformité PDF/A-3b de fond est vérifiée par **veraPDF**, via Mustang, en
-intégration continue — jamais chez l'utilisateur :
+Deep PDF/A-3b compliance is verified by **veraPDF**, via Mustang, in
+continuous integration — never on the user's machine:
 
 ```sh
 GOFACT_ORACLE_HTML=facture.html go test -tags=ci ./internal/facturx
@@ -65,98 +67,98 @@ go test ./...
 
 ## Configuration
 
-**Aucune identité ni aucun secret n'est codé en dur.** L'émetteur des factures,
-l'IBAN de règlement et les identifiants PDP viennent de l'environnement.
+**No identity and no secret is hard-coded.** The invoice issuer, the payment
+IBAN and the PDP credentials come from the environment.
 
 ```sh
-cp .env.example .env    # puis renseigner ses propres valeurs
+cp .env.example .env    # then fill in your own values
 ```
 
-`gofact` charge, dans l'ordre et sans jamais écraser une variable déjà définie :
-le fichier passé à `-env`, sinon `./.env`, puis `$XDG_CONFIG_HOME/gofact/.env`
-(`~/.config/gofact/.env` par défaut). Le `.env` est ignoré par git — ne jamais le
-committer.
+`gofact` loads, in order and without ever overwriting an already-defined
+variable: the file passed to `-env`, otherwise `./.env`, then
+`$XDG_CONFIG_HOME/gofact/.env` (`~/.config/gofact/.env` by default). The `.env`
+is git-ignored — never commit it.
 
-| Variable | Rôle |
+| Variable | Purpose |
 | --- | --- |
-| `GOFACT_SELLER_NAME` | Nom du vendeur. **Requis** sauf si le JSON porte un bloc `seller`. |
-| `GOFACT_SELLER_SIRET` / `GOFACT_SELLER_SIREN` | Identifiant légal FR (BT-30). Le SIREN est dérivé du SIRET. |
-| `GOFACT_SELLER_VAT_NUMBER` | N° TVA intracom (BT-31). Vide en franchise 293 B ⇒ BT-32 = SIREN. |
-| `GOFACT_SELLER_EMAIL` | E-mail du vendeur. |
-| `GOFACT_SELLER_ADDRESS` / `_POSTAL_CODE` / `_CITY` / `_COUNTRY` | Adresse postale (défaut pays `FR`). |
-| `GOFACT_SELLER_ELECTRONIC_ADDRESS` / `_SCHEME` | Routage Peppol BT-34. Vide ⇒ SIREN + scheme `0225`. |
-| `GOFACT_PAYEE_IBAN` | IBAN de règlement (BT-84). Vide ⇒ omis de la facture. |
-| `GOFACT_VAT_EXEMPTION_MENTION` / `_CODE` | Mention et code d'exonération par défaut (293 B). |
-| `SUPERPDP_CLIENT_ID` / `SUPERPDP_CLIENT_SECRET` / `SUPERPDP_BASE` | Identifiants PDP (**secrets**), pour `-send` uniquement. |
+| `GOFACT_SELLER_NAME` | Seller name. **Required** unless the JSON carries a `seller` block. |
+| `GOFACT_SELLER_SIRET` / `GOFACT_SELLER_SIREN` | French legal identifier (BT-30). The SIREN is derived from the SIRET. |
+| `GOFACT_SELLER_VAT_NUMBER` | Intra-community VAT number (BT-31). Empty under the 293 B franchise ⇒ BT-32 = SIREN. |
+| `GOFACT_SELLER_EMAIL` | Seller e-mail. |
+| `GOFACT_SELLER_ADDRESS` / `_POSTAL_CODE` / `_CITY` / `_COUNTRY` | Postal address (country defaults to `FR`). |
+| `GOFACT_SELLER_ELECTRONIC_ADDRESS` / `_SCHEME` | Peppol routing BT-34. Empty ⇒ SIREN + scheme `0225`. |
+| `GOFACT_PAYEE_IBAN` | Payment IBAN (BT-84). Empty ⇒ omitted from the invoice. |
+| `GOFACT_VAT_EXEMPTION_MENTION` / `_CODE` | Default exemption mention and code (293 B). |
+| `SUPERPDP_CLIENT_ID` / `SUPERPDP_CLIENT_SECRET` / `SUPERPDP_BASE` | PDP credentials (**secrets**), for `-send` only. |
 
-Sans vendeur configuré, `gofact` **échoue explicitement** plutôt que d'émettre une
-facture incomplète. Chaque valeur reste surchargeable facture par facture via le JSON.
+With no seller configured, `gofact` **fails explicitly** rather than issuing an
+incomplete invoice. Every value can still be overridden per invoice via the JSON.
 
-## Serveur MCP — parler à son IA pour facturer
+## MCP server — talk to your AI to invoice
 
-`gofact mcp` expose la facturation en **serveur MCP local (stdio)** : depuis
-Claude Desktop, Claude Code, LM Studio ou tout client MCP, dire « fais-moi une
-facture pour ACME, 2 jours à 600 € » suffit. L'IA est l'interface ; gofact
-garantit la numérotation (séquence légale continue, attribution verrouillée et
-transactionnelle), la conformité EN 16931 et l'archivage — en local.
+`gofact mcp` exposes invoicing as a **local MCP server (stdio)**: from Claude
+Desktop, Claude Code, LM Studio or any MCP client, saying "make me an invoice
+for ACME, 2 days at €600" is enough. The AI is the interface; gofact
+guarantees the numbering (continuous legal sequence, locked and transactional
+allocation), EN 16931 compliance and archiving — locally.
 
 ```sh
-# Enregistrer dans Claude Code, par exemple :
-claude mcp add gofact -- /chemin/vers/gofact mcp
+# Register in Claude Code, for example:
+claude mcp add gofact -- /path/to/gofact mcp
 ```
 
-Outils : `list_organizations`, `get_organization`, `init_organization`,
+Tools: `list_organizations`, `get_organization`, `init_organization`,
 `search_client`, `get_invoice_template`, `preview_next_number`, `list_invoices`,
-`create_invoice`, `send_invoice` (seul outil destructif — dépôt PDP,
-confirmation explicite exigée), `get_invoice_status`. Prompt : `nouvelle-facture`.
+`create_invoice`, `send_invoice` (the only destructive tool — PDP submission,
+explicit confirmation required), `get_invoice_status`. Prompt: `nouvelle-facture`.
 
-Une **organisation** (entité émettrice) = un dossier autonome : identité dans
-son `.env`, registre `numerotation.json`, journal d'audit `journal.ndjson`,
-modèle de facture figé à la première émission, et les factures elles-mêmes.
-Gestion au CLI : `gofact org list | init | show`. Aucun secret ne sort jamais
-d'une réponse d'outil.
+An **organization** (issuing entity) = a self-contained directory: identity in
+its `.env`, `numerotation.json` registry, `journal.ndjson` audit log, invoice
+template frozen at first issuance, and the invoices themselves. CLI
+management: `gofact org list | init | show`. No secret ever leaves a tool
+response.
 
 ## Usage (CLI)
 
 ```sh
-# Le plus simple : -data et -out déduits du nom du HTML
+# Simplest form: -data and -out derived from the HTML file name
 gofact -html "2026011 - Client.html"
-#   → lit "2026011 - Client.json", écrit "2026011 - Client.pdf"
+#   → reads "2026011 - Client.json", writes "2026011 - Client.pdf"
 
-# Chemins explicites + dump du XML pour debug
+# Explicit paths + XML dump for debugging
 gofact -html f.html -data f.json -out f.pdf -xml f.xml
 
 # Options
--env <path>       # fichier .env explicite
--validate=false   # n'exécute pas l'auto-contrôle du PDF produit
--chrome <path>    # force l'exécutable Chrome
--q                # silencieux (n'affiche que les erreurs)
+-env <path>       # explicit .env file
+-validate=false   # skip the self-check of the produced PDF
+-chrome <path>    # force the Chrome executable
+-q                # quiet (errors only)
 ```
 
-Code de sortie `0` si le Factur-X est généré (et conforme si `-validate`).
+Exit code `0` if the Factur-X is generated (and compliant when `-validate`).
 
-## Envoi à une PDP (SuperPDP)
+## Sending to a PDP (SuperPDP)
 
-`gofact` dépose le PDF Factur-X sur SuperPDP (OAuth2 client credentials).
+`gofact` submits the Factur-X PDF to SuperPDP (OAuth2 client credentials).
 
 ```sh
-# générer puis déposer en une commande
+# generate then submit in one command
 gofact -html f.html -send -poll
-# déposer un PDF déjà généré
+# submit an already-generated PDF
 gofact send -pdf f.pdf -poll
 ```
 
-> **La PDP exige que le vendeur de la facture = la société du compte authentifié**
-> (identifiant légal BT-30) et une **adresse électronique de routage** (BT-34/BT-49,
-> scheme `0225`) pour l'émetteur comme le destinataire. Voir `electronic_address`
-> ci-dessous. `-poll` affiche le cycle de vie (`fr:200` déposée → `fr:201` émise →
-> `fr:202` reçue).
+> **The PDP requires that the invoice seller = the company of the authenticated
+> account** (legal identifier BT-30) and an **electronic routing address**
+> (BT-34/BT-49, scheme `0225`) for both the issuer and the recipient. See
+> `electronic_address` below. `-poll` shows the lifecycle (`fr:200` submitted →
+> `fr:201` issued → `fr:202` received).
 
-## Format JSON (sidecar)
+## JSON format (sidecar)
 
-Tous les montants sont en **centimes** (entiers). Le vendeur, l'IBAN, le régime de
-TVA et les mentions légales FR ont des **valeurs par défaut** (environnement) — le
-JSON ne porte que ce qui varie.
+All amounts are in **cents** (integers). The seller, the IBAN, the VAT regime
+and the French legal mentions have **default values** (environment) — the JSON
+only carries what varies.
 
 ```json
 {
@@ -180,14 +182,15 @@ JSON ne porte que ce qui varie.
 }
 ```
 
-Champs optionnels : `due_date` (défaut « à réception » = émission),
-`delivery_date` (défaut = émission), `currency` (défaut EUR), `vat`
-(défaut exonéré 293 B ; mettre `{"exempt": false, "rate_pct": "20.00"}` pour la
-TVA standard), `seller`, `iban`, `notes`.
+Optional fields: `due_date` (defaults to "on receipt" = issue date),
+`delivery_date` (defaults to issue date), `currency` (defaults to EUR), `vat`
+(defaults to 293 B exemption; set `{"exempt": false, "rate_pct": "20.00"}` for
+standard VAT), `seller`, `iban`, `notes`.
 
-**Routage PDP** : `seller`/`buyer` acceptent `electronic_address` (BT-34/BT-49) et
-`electronic_address_scheme` (ex. `"0225"`). Requis pour l'envoi à une PDP, qui route
-sur ces adresses plutôt que sur l'adresse postale. Exemple (override vendeur) :
+**PDP routing**: `seller`/`buyer` accept `electronic_address` (BT-34/BT-49) and
+`electronic_address_scheme` (e.g. `"0225"`). Required for PDP submission, which
+routes on these addresses rather than on the postal address. Example (seller
+override):
 
 ```json
 "seller": {
@@ -198,48 +201,51 @@ sur ces adresses plutôt que sur l'adresse postale. Exemple (override vendeur) :
 
 ## Installation
 
-**Binaire précompilé** (release GitHub, aucune toolchain requise) :
+**Precompiled binary** (GitHub release, no toolchain required):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/kolapsis/gofact/main/install.sh | sh
-gofact install -yes    # enregistre le serveur MCP dans les clients détectés
+gofact install -yes    # registers the MCP server in the detected clients
 ```
 
-`gofact install` détecte Claude Desktop, Claude Code, LM Studio et Cursor, montre ce
-qu'il compte écrire (dry-run par défaut), sauvegarde chaque fichier avant modification
-et n'écrase jamais une entrée divergente sans `-force`. Windows : `install.ps1`.
+`gofact install` detects Claude Desktop, Claude Code, LM Studio and Cursor,
+shows what it intends to write (dry-run by default), backs up every file before
+modifying it and never overwrites a diverging entry without `-force`. Windows:
+`install.ps1`.
 
-**Plugin Claude Code** — le dépôt est aussi un plugin : skill `creer-facture` + serveur
-MCP déclaré (compilé au 1ᵉʳ usage, toolchain Go requise pour ce build initial) :
+**Claude Code plugin** — the repository is also a plugin: `creer-facture` skill
++ declared MCP server (compiled on first use, Go toolchain required for that
+initial build):
 
 ```
 /plugin marketplace add kolapsis/gofact
 /plugin install gofact@gofact
 ```
 
-**Depuis les sources** : `go build -o gofact .`
+**From source**: `go build -o gofact .`
 
-Les organisations vivent dans des **dossiers locaux** (identité, registre, factures) —
-jamais versionnés ici : ils contiennent des données réelles. `GOFACT_INVOICES_DIR`
-reste honorée pour la compatibilité avec le skill historique.
+Organizations live in **local directories** (identity, registry, invoices) —
+never versioned here: they contain real data. `GOFACT_INVOICES_DIR` is still
+honored for compatibility with the historical skill.
 
-## Limites connues
+## Known limitations
 
-- Le rendu repose sur un navigateur Blink ; les paquets confinés (snap,
-  flatpak) sont ignorés car ils ne lisent pas hors de `$HOME`.
-- Mono-taux de TVA. Le multi-taux n'est pas géré.
-- Devise ≠ EUR : la contre-valeur TVA en EUR (BT-111) doit être fournie en amont
-  (champ `VATEur` du modèle) ; non exposé dans le JSON pour l'instant.
-- Une seule PDP implémentée (SuperPDP).
+- Rendering relies on a Blink browser; sandboxed packages (snap, flatpak) are
+  ignored because they cannot read outside `$HOME`.
+- Single VAT rate. Multi-rate is not supported.
+- Currency ≠ EUR: the VAT counter-value in EUR (BT-111) must be provided
+  upstream (`VATEur` field of the model); not exposed in the JSON yet.
+- Only one PDP implemented (SuperPDP).
 
-## Licence
+## License
 
-**GNU AGPL v3 ou ultérieure** — voir [LICENSE](LICENSE).
+**GNU AGPL v3 or later** — see [LICENSE](LICENSE).
 
 Copyright (C) 2026 Benjamin Touchard.
 
-gofact est un logiciel libre : vous pouvez le redistribuer et le modifier selon les termes de
-la GNU Affero General Public License telle que publiée par la Free Software Foundation, en
-version 3 ou toute version ultérieure. Il est distribué dans l'espoir qu'il sera utile, mais
-**SANS AUCUNE GARANTIE**, sans même la garantie implicite de qualité marchande ou d'adéquation
-à un usage particulier.
+gofact is free software: you can redistribute it and/or modify it under the
+terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or any later version. It
+is distributed in the hope that it will be useful, but **WITHOUT ANY
+WARRANTY**; without even the implied warranty of merchantability or fitness
+for a particular purpose.
