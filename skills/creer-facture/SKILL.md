@@ -178,12 +178,12 @@ GOFACT="${CLAUDE_PLUGIN_ROOT:?plugin gofact introuvable}"
 ```
 
 - Sortie : `{même nom}.pdf`. Affiche `✓ Factur-X conforme (EN 16931)`.
-- Au 1ᵉʳ run, `gofact` télécharge Mustang dans `~/.cache/gofact/` (validation EN 16931 + PDF/A).
 - Erreur « vendeur non configuré » ⇒ les variables `GOFACT_SELLER_*` ne sont pas en place :
   renseigner un `.env` (cf. `.env.example` du plugin) ou `~/.config/gofact/.env`.
-- En cas de `✗ NON conforme`, lire le rapport affiché et corriger le `.json` (souvent un champ
-  acheteur manquant : SIRET, adresse) ; ne pas livrer un PDF non conforme.
-- Dépendances système : `google-chrome`, `gs` (Ghostscript ≥ 10), `java` (JRE 11+).
+- Erreur « facture non conforme EN 16931 » ⇒ gofact refuse d'émettre et nomme la règle
+  (`BR-50`, `BR-CO-15`…) et le champ fautif. Corriger le `.json` ou la configuration, puis
+  relancer — ne jamais contourner en désactivant l'auto-contrôle.
+- Dépendance système : un navigateur Chrome, Edge, Brave ou Chromium. Rien d'autre.
 
 ## Règles à ne pas transgresser
 - Numérotation continue, sans trou, jamais réutilisée ni antidatée.

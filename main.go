@@ -1,9 +1,9 @@
 // Command gofact assemble et envoie des factures Factur-X (PDF/A-3 + XML CII
 // EN 16931).
 //
-// Génération : HTML → PDF (Chrome) → PDF/A-3 + embarquement XML verbatim
-// (Ghostscript/zugferd.ps) → validation (Mustang). Dépendances externes :
-// google-chrome, gs, java.
+// Génération : règles EN 16931 → XML CII → PDF (Chrome) → PDF/A-3 avec
+// embarquement du XML verbatim, en Go pur → auto-contrôle du résultat.
+// Seule dépendance externe : un navigateur Chrome pour le rendu.
 //
 // Envoi : dépôt du PDF Factur-X sur la PDP SuperPDP (OAuth2 client credentials).
 //
@@ -47,7 +47,7 @@ func runGenerate(argv []string) {
 	outPath := fs.String("out", "", "PDF Factur-X de sortie (défaut : même nom que -html en .pdf)")
 	xmlPath := fs.String("xml", "", "écrit aussi le XML CII à ce chemin (debug)")
 	chromePath := fs.String("chrome", "", "exécutable Chrome (défaut : auto-détection)")
-	validate := fs.Bool("validate", true, "valide le résultat avec Mustang")
+	validate := fs.Bool("validate", true, "relit et vérifie le Factur-X produit")
 	send := fs.Bool("send", false, "dépose le PDF sur SuperPDP après génération")
 	envPath := fs.String("env", "", "fichier .env (vendeur, IBAN, identifiants PDP) ; défaut ./.env puis ~/.config/gofact/.env")
 	poll := fs.Bool("poll", false, "après envoi, récupère les statuts du cycle de vie")

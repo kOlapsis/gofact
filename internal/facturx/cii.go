@@ -214,7 +214,7 @@ func buildTransaction(inv Invoice) ciiTransaction {
 	}
 	// Document en devise étrangère : déclarer la devise de comptabilisation (BT-6=EUR)
 	// et porter la contre-valeur TVA en EUR (BT-111). EN 16931 BR-53 l'exige dès que
-	// la devise de TVA diffère de la devise de facture ; sans elle, Mustang refuse.
+	// la devise de TVA diffère de la devise de facture ; sans elle, BR-53 échoue.
 	if inv.Currency != "EUR" {
 		settlement.TaxCurrency = "EUR"
 		settlement.Summation.TaxTotalAmount = append(settlement.Summation.TaxTotalAmount,
