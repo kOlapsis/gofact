@@ -28,7 +28,8 @@ import (
 
 	"github.com/kolapsis/gofact/internal/dotenv"
 	"github.com/kolapsis/gofact/internal/facturx"
-	"github.com/kolapsis/gofact/internal/superpdp"
+	"github.com/kolapsis/gofact/internal/pdp"
+	_ "github.com/kolapsis/gofact/internal/pdp/superpdp"
 )
 
 func main() {
@@ -138,37 +139,33 @@ func runSend(argv []string) {
 	sendPDF(ctx, *pdfPath, *envPath, *poll)
 }
 
-// sendPDF authentifie puis dépose le PDF sur SuperPDP, en affichant le résultat.
+// sendPDF dépose le PDF sur la PDP configurée, en affichant le résultat.
 func sendPDF(ctx context.Context, pdf, envPath string, poll bool) {
 	if err := dotenv.LoadDefault(envPath); err != nil {
 		fail(err)
 	}
-	cfg, err := superpdp.ConfigFromEnv()
+	provider, err := pdp.Open(os.Getenv)
 	if err != nil {
 		fail(err)
 	}
-	cli := superpdp.New(cfg)
-	if err := cli.Authenticate(ctx); err != nil {
-		fail(err)
-	}
-	inv, err := cli.SendPDF(ctx, pdf)
+	receipt, err := provider.Send(ctx, pdf)
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("✓ Déposée sur SuperPDP — facture #%d (société %d, %s)\n", inv.ID, inv.CompanyID, inv.Direction)
-	printEvents(inv.Events)
+	fmt.Printf("✓ Déposée sur %s — référence %s\n", receipt.Provider, receipt.Reference)
+	printEvents(receipt.Events)
 
 	if poll {
-		got, err := cli.GetInvoice(ctx, inv.ID)
+		events, err := provider.Status(ctx, receipt.Reference)
 		if err != nil {
 			fail(err)
 		}
 		fmt.Println("— cycle de vie —")
-		printEvents(got.Events)
+		printEvents(events)
 	}
 }
 
-func printEvents(events []superpdp.Event) {
+func printEvents(events []pdp.Event) {
 	for _, e := range events {
 		fmt.Printf("  %s  %-16s %s\n", e.CreatedAt, e.StatusCode, e.StatusText)
 	}

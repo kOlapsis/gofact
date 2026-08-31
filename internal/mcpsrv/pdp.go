@@ -9,7 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kolapsis/gofact/internal/superpdp"
+	"github.com/kolapsis/gofact/internal/pdp"
+	_ "github.com/kolapsis/gofact/internal/pdp/superpdp"
 	"github.com/kolapsis/gofact/internal/workspace"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -25,9 +26,9 @@ func addPDPTools(s *mcp.Server) {
 		Confirm bool   `json:"confirm" jsonschema:"doit valoir true, après confirmation EXPLICITE de l'utilisateur — un dépôt PDP est irréversible"`
 	}
 	type sendOut struct {
-		Provider  string           `json:"provider"`
-		Reference int64            `json:"reference"`
-		Events    []superpdp.Event `json:"events"`
+		Provider  string      `json:"provider"`
+		Reference string      `json:"reference"`
+		Events    []pdp.Event `json:"events"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "send_invoice",
@@ -50,19 +51,17 @@ func addPDPTools(s *mcp.Server) {
 		if err != nil {
 			return nil, sendOut{}, err
 		}
-		cli, err := pdpClient(o)
+		provider, err := pdp.Open(o.Lookup)
 		if err != nil {
 			return nil, sendOut{}, err
 		}
-		if err := cli.Authenticate(ctx); err != nil {
-			return nil, sendOut{}, err
-		}
-		inv, err := cli.SendPDF(ctx, pdf)
+		receipt, err := provider.Send(ctx, pdf)
 		if err != nil {
 			return nil, sendOut{}, err
 		}
-		_ = o.Journal("pdp_sent", map[string]any{"numero": in.Number, "provider": "superpdp", "reference": inv.ID})
-		return nil, sendOut{Provider: "superpdp", Reference: inv.ID, Events: inv.Events}, nil
+		_ = o.Journal("pdp_sent", map[string]any{"numero": in.Number,
+			"provider": receipt.Provider, "reference": receipt.Reference})
+		return nil, sendOut{Provider: receipt.Provider, Reference: receipt.Reference, Events: receipt.Events}, nil
 	})
 
 	type statusIn struct {
@@ -70,8 +69,8 @@ func addPDPTools(s *mcp.Server) {
 		Number string `json:"number" jsonschema:"numéro de la facture"`
 	}
 	type statusOut struct {
-		Provider string           `json:"provider"`
-		Events   []superpdp.Event `json:"events"`
+		Provider string      `json:"provider"`
+		Events   []pdp.Event `json:"events"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_invoice_status",
@@ -83,40 +82,20 @@ func addPDPTools(s *mcp.Server) {
 		if err != nil {
 			return nil, statusOut{}, err
 		}
-		ref, err := sentReference(o, in.Number)
+		ref, provName, err := sentReference(o, in.Number)
 		if err != nil {
 			return nil, statusOut{}, err
 		}
-		cli, err := pdpClient(o)
+		provider, err := pdp.Open(o.Lookup)
 		if err != nil {
 			return nil, statusOut{}, err
 		}
-		if err := cli.Authenticate(ctx); err != nil {
-			return nil, statusOut{}, err
-		}
-		inv, err := cli.GetInvoice(ctx, ref)
+		events, err := provider.Status(ctx, ref)
 		if err != nil {
 			return nil, statusOut{}, err
 		}
-		return nil, statusOut{Provider: "superpdp", Events: inv.Events}, nil
+		return nil, statusOut{Provider: provName, Events: events}, nil
 	})
-}
-
-// pdpClient construit le client PDP depuis la configuration DE L'ORGANISATION —
-// jamais l'environnement global seul : chaque entité a son propre compte.
-func pdpClient(o *workspace.Org) (*superpdp.Client, error) {
-	cfg := superpdp.Config{
-		Base:         o.Lookup("SUPERPDP_BASE"),
-		ClientID:     o.Lookup("SUPERPDP_CLIENT_ID"),
-		ClientSecret: o.Lookup("SUPERPDP_CLIENT_SECRET"),
-	}
-	if cfg.ClientID == "" || cfg.ClientSecret == "" {
-		return nil, fmt.Errorf("aucun compte PDP configuré pour cette organisation. L'utilisateur doit " +
-			"renseigner SUPERPDP_CLIENT_ID et SUPERPDP_CLIENT_SECRET dans le fichier .env du dossier " +
-			"de l'organisation (identifiants fournis par sa plateforme). Ne jamais demander ces " +
-			"valeurs en conversation : elles se placent directement dans le fichier")
-	}
-	return superpdp.New(cfg), nil
 }
 
 // invoicePDF retrouve le PDF d'une facture inscrite au registre.
@@ -143,35 +122,35 @@ func invoicePDF(o *workspace.Org, number string) (string, error) {
 	return "", fmt.Errorf("facture %s inconnue du registre — vérifier le numéro avec list_invoices", number)
 }
 
-// sentReference retrouve, dans le journal, la référence PDP d'une facture déjà
-// déposée.
-func sentReference(o *workspace.Org, number string) (int64, error) {
+// sentReference retrouve, dans le journal, la référence et le fournisseur du
+// dernier dépôt d'une facture.
+func sentReference(o *workspace.Org, number string) (ref, provider string, err error) {
 	f, err := os.Open(filepath.Join(o.Path, workspace.JournalFile))
 	if err != nil {
-		return 0, fmt.Errorf("aucun dépôt PDP tracé pour cette organisation")
+		return "", "", fmt.Errorf("aucun dépôt PDP tracé pour cette organisation")
 	}
 	defer func() { _ = f.Close() }()
 
-	var ref int64 = -1
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		var line struct {
 			Event string `json:"event"`
 			Data  struct {
 				Numero    string `json:"numero"`
-				Reference int64  `json:"reference"`
+				Provider  string `json:"provider"`
+				Reference string `json:"reference"`
 			} `json:"data"`
 		}
 		if json.Unmarshal(sc.Bytes(), &line) != nil {
 			continue
 		}
 		if line.Event == "pdp_sent" && line.Data.Numero == number {
-			ref = line.Data.Reference // le plus récent gagne
+			ref, provider = line.Data.Reference, line.Data.Provider // le plus récent gagne
 		}
 	}
-	if ref < 0 {
-		return 0, fmt.Errorf("la facture %s n'a pas été déposée sur la PDP (aucune trace au journal). "+
+	if ref == "" {
+		return "", "", fmt.Errorf("la facture %s n'a pas été déposée sur la PDP (aucune trace au journal). "+
 			"La déposer d'abord avec send_invoice", number)
 	}
-	return ref, nil
+	return ref, provider, nil
 }
