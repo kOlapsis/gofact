@@ -1,0 +1,182 @@
+# gofact
+
+Petit binaire Go qui transforme une **facture HTML** (prête à imprimer) en
+**Factur-X** : un PDF/A-3 conforme avec le XML CII EN 16931 embarqué, et le
+dépose optionnellement sur une plateforme de dématérialisation partenaire (PDP).
+
+Pensé pour la facturation d'un indépendant ou d'une petite structure française
+(réforme de la facturation électronique), et livré aussi comme **plugin Claude
+Code** avec le skill `creer-facture`.
+
+## Chaîne
+
+```
+JSON  ──gofact───────────▶  factur-x.xml (CII EN 16931)
+HTML  ──Chrome headless──▶  PDF          (rendu identique au Ctrl+P, arrière-plans inclus)
+PDF + XML ──gs/zugferd.ps▶  Factur-X     (PDF/A-3 + embarquement VERBATIM du XML)
+Factur-X  ──Mustang──────▶  validation   (EN 16931 + PDF/A, désactivable)
+```
+
+> **Embarquement verbatim — important.** L'assemblage utilise le support Factur-X
+> natif de Ghostscript (`zugferd.ps`), qui insère le XML **octet pour octet**. On
+> n'utilise *pas* l'assembleur de Mustang : il re-sérialise le XML via son modèle et
+> **perd les champs étendus** comme les adresses électroniques de routage PDP
+> (BT-34/BT-49). Mustang ne sert qu'à la validation.
+
+## Dépendances système
+
+- **google-chrome** (ou chromium non-snap) — rendu HTML → PDF
+- **gs** (Ghostscript ≥ 10.x) — PDF/A-3 + embarquement Factur-X (`zugferd.ps`)
+- **java** (JRE 11+) — validation Mustang (téléchargé au 1ᵉʳ run dans `~/.cache/gofact/`)
+
+Le profil ICC sRGB est embarqué dans le binaire (aucune dépendance de chemin).
+
+## Build
+
+```sh
+go build -o gofact .
+go test ./...
+```
+
+## Configuration
+
+**Aucune identité ni aucun secret n'est codé en dur.** L'émetteur des factures,
+l'IBAN de règlement et les identifiants PDP viennent de l'environnement.
+
+```sh
+cp .env.example .env    # puis renseigner ses propres valeurs
+```
+
+`gofact` charge, dans l'ordre et sans jamais écraser une variable déjà définie :
+le fichier passé à `-env`, sinon `./.env`, puis `$XDG_CONFIG_HOME/gofact/.env`
+(`~/.config/gofact/.env` par défaut). Le `.env` est ignoré par git — ne jamais le
+committer.
+
+| Variable | Rôle |
+| --- | --- |
+| `GOFACT_SELLER_NAME` | Nom du vendeur. **Requis** sauf si le JSON porte un bloc `seller`. |
+| `GOFACT_SELLER_SIRET` / `GOFACT_SELLER_SIREN` | Identifiant légal FR (BT-30). Le SIREN est dérivé du SIRET. |
+| `GOFACT_SELLER_VAT_NUMBER` | N° TVA intracom (BT-31). Vide en franchise 293 B ⇒ BT-32 = SIREN. |
+| `GOFACT_SELLER_EMAIL` | E-mail du vendeur. |
+| `GOFACT_SELLER_ADDRESS` / `_POSTAL_CODE` / `_CITY` / `_COUNTRY` | Adresse postale (défaut pays `FR`). |
+| `GOFACT_SELLER_ELECTRONIC_ADDRESS` / `_SCHEME` | Routage Peppol BT-34. Vide ⇒ SIREN + scheme `0225`. |
+| `GOFACT_PAYEE_IBAN` | IBAN de règlement (BT-84). Vide ⇒ omis de la facture. |
+| `GOFACT_VAT_EXEMPTION_MENTION` / `_CODE` | Mention et code d'exonération par défaut (293 B). |
+| `SUPERPDP_CLIENT_ID` / `SUPERPDP_CLIENT_SECRET` / `SUPERPDP_BASE` | Identifiants PDP (**secrets**), pour `-send` uniquement. |
+
+Sans vendeur configuré, `gofact` **échoue explicitement** plutôt que d'émettre une
+facture incomplète. Chaque valeur reste surchargeable facture par facture via le JSON.
+
+## Usage
+
+```sh
+# Le plus simple : -data et -out déduits du nom du HTML
+gofact -html "2026011 - Client.html"
+#   → lit "2026011 - Client.json", écrit "2026011 - Client.pdf"
+
+# Chemins explicites + dump du XML pour debug
+gofact -html f.html -data f.json -out f.pdf -xml f.xml
+
+# Options
+-env <path>       # fichier .env explicite
+-validate=false   # n'exécute pas la validation Mustang (plus rapide)
+-chrome <path>    # force l'exécutable Chrome
+-q                # silencieux (n'affiche que les erreurs)
+```
+
+Code de sortie `0` si le Factur-X est généré (et conforme si `-validate`).
+
+## Envoi à une PDP (SuperPDP)
+
+`gofact` dépose le PDF Factur-X sur SuperPDP (OAuth2 client credentials).
+
+```sh
+# générer puis déposer en une commande
+gofact -html f.html -send -poll
+# déposer un PDF déjà généré
+gofact send -pdf f.pdf -poll
+```
+
+> **La PDP exige que le vendeur de la facture = la société du compte authentifié**
+> (identifiant légal BT-30) et une **adresse électronique de routage** (BT-34/BT-49,
+> scheme `0225`) pour l'émetteur comme le destinataire. Voir `electronic_address`
+> ci-dessous. `-poll` affiche le cycle de vie (`fr:200` déposée → `fr:201` émise →
+> `fr:202` reçue).
+
+## Format JSON (sidecar)
+
+Tous les montants sont en **centimes** (entiers). Le vendeur, l'IBAN, le régime de
+TVA et les mentions légales FR ont des **valeurs par défaut** (environnement) — le
+JSON ne porte que ce qui varie.
+
+```json
+{
+  "number": "2026011",
+  "type": "invoice",
+  "issue_date": "2026-06-29",
+  "buyer_reference": "D2026004",
+  "buyer": {
+    "name": "ACME SAS",
+    "siret": "55208131700015",
+    "email": "compta@acme.example",
+    "address": "1 rue de la Paix",
+    "postal_code": "75002",
+    "city": "Paris",
+    "country_code": "FR"
+  },
+  "lines": [
+    { "name": "Développement", "unit": "day", "quantity": "2.00",
+      "unit_price_ht_cents": 60000, "amount_ht_cents": 120000 }
+  ]
+}
+```
+
+Champs optionnels : `due_date` (défaut « à réception » = émission),
+`delivery_date` (défaut = émission), `currency` (défaut EUR), `vat`
+(défaut exonéré 293 B ; mettre `{"exempt": false, "rate_pct": "20.00"}` pour la
+TVA standard), `seller`, `iban`, `notes`.
+
+**Routage PDP** : `seller`/`buyer` acceptent `electronic_address` (BT-34/BT-49) et
+`electronic_address_scheme` (ex. `"0225"`). Requis pour l'envoi à une PDP, qui route
+sur ces adresses plutôt que sur l'adresse postale. Exemple (override vendeur) :
+
+```json
+"seller": {
+  "name": "Studio Exemple", "siren": "123456789",
+  "electronic_address": "123456789", "electronic_address_scheme": "0225"
+}
+```
+
+## Distribution (plugin Claude Code)
+
+Ce repo est **aussi un plugin Claude Code** : il embarque le skill `creer-facture`
+(`skills/`) et le binaire, le tout décrit par `.claude-plugin/plugin.json` et exposé
+comme marketplace mono-plugin par `.claude-plugin/marketplace.json`.
+
+```
+/plugin marketplace add kolapsis/gofact
+/plugin install gofact@gofact
+```
+
+(ou `add <chemin/local/du/clone>` pour une installation depuis un clone.)
+
+Le skill appelle le binaire via `${CLAUDE_PLUGIN_ROOT}/gofact` et le **compile au 1ᵉʳ
+usage** (le binaire n'est pas versionné, cf. `.gitignore`). Toolchain Go requise pour ce
+build initial ; ensuite, simple exécution.
+
+Le skill travaille dans un **dossier de facturation local** (template HTML, registre de
+numérotation, logo) désigné par `GOFACT_INVOICES_DIR` — jamais versionné ici, puisqu'il
+contient des données réelles.
+
+## Limites connues
+
+- Le rendu repose sur Chrome ; le chromium **snap** est ignoré (confiné, ne lit
+  pas hors de `$HOME`).
+- Mono-taux de TVA. Le multi-taux n'est pas géré.
+- Devise ≠ EUR : la contre-valeur TVA en EUR (BT-111) doit être fournie en amont
+  (champ `VATEur` du modèle) ; non exposé dans le JSON pour l'instant.
+- Une seule PDP implémentée (SuperPDP).
+
+## Licence
+
+MIT — voir [LICENSE](LICENSE).

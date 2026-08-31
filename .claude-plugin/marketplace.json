@@ -1,0 +1,18 @@
+{
+  "name": "gofact",
+  "owner": {
+    "name": "Benjamin Touchard",
+    "url": "https://github.com/kolapsis"
+  },
+  "metadata": {
+    "description": "Facturation électronique Factur-X (PDF/A-3 + XML CII EN 16931) pour Claude Code."
+  },
+  "plugins": [
+    {
+      "name": "gofact",
+      "source": "./",
+      "description": "Binaire gofact (HTML → Factur-X PDF/A-3 + XML CII EN 16931) et skill creer-facture.",
+      "category": "productivity"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+# Binaire compilé
+/gofact
+
+# Configuration locale et secrets — jamais versionnés
+.env
+.env.*
+!.env.example
+
+# Factures, PDF et fichiers de travail (données réelles)
+/sandbox/
+*.pdf
+*.part
+
+# Éditeurs
+/.idea/
+/.vscode/

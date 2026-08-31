@@ -1,0 +1,13 @@
+{
+  "name": "gofact",
+  "version": "1.1.0",
+  "description": "Génère des factures Factur-X conformes (PDF/A-3 + XML CII EN 16931) : binaire Go + skill creer-facture.",
+  "author": {
+    "name": "Benjamin Touchard",
+    "url": "https://github.com/kolapsis"
+  },
+  "homepage": "https://github.com/kolapsis/gofact",
+  "repository": "https://github.com/kolapsis/gofact",
+  "license": "MIT",
+  "keywords": ["factur-x", "facture", "invoice", "pdf-a3", "en16931", "peppol", "france"]
+}
