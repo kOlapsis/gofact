@@ -8,6 +8,6 @@
   },
   "homepage": "https://github.com/kolapsis/gofact",
   "repository": "https://github.com/kolapsis/gofact",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "keywords": ["factur-x", "facture", "invoice", "pdf-a3", "en16931", "peppol", "france"]
 }

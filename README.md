@@ -179,4 +179,12 @@ contient des données réelles.
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE).
+**GNU AGPL v3 ou ultérieure** — voir [LICENSE](LICENSE).
+
+Copyright (C) 2026 Benjamin Touchard.
+
+gofact est un logiciel libre : vous pouvez le redistribuer et le modifier selon les termes de
+la GNU Affero General Public License telle que publiée par la Free Software Foundation, en
+version 3 ou toute version ultérieure. Il est distribué dans l'espoir qu'il sera utile, mais
+**SANS AUCUNE GARANTIE**, sans même la garantie implicite de qualité marchande ou d'adéquation
+à un usage particulier.
