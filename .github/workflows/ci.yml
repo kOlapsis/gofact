@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Tests unitaires + parcours complet (rendu Chrome réel) sur les trois OS.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: Vet
+        run: go vet ./...
+      - name: Tests
+        env:
+          GOFACT_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+        run: go test ./...
+
+  # Oracle de conformité : Mustang (veraPDF + Schematron EN 16931) juge la
+  # sortie du binaire. Java n'existe qu'ici — jamais chez un utilisateur.
+  oracle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Cache Mustang
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gofact
+          key: mustang-2.23.1
+      - name: Oracle Mustang
+        env:
+          GOFACT_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+        run: go test -tags=ci ./internal/facturx -run TestOracle -v
+
+  # Compilation croisée : le binaire doit exister partout où la cible vit.
+  cross:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Cross-compile
+        run: |
+          for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./...
+            echo "ok $t"
+          done

@@ -196,26 +196,32 @@ sur ces adresses plutôt que sur l'adresse postale. Exemple (override vendeur) :
 }
 ```
 
-## Distribution (plugin Claude Code)
+## Installation
 
-Ce repo est **aussi un plugin Claude Code** : il embarque le skill `creer-facture`
-(`skills/`) et le binaire, le tout décrit par `.claude-plugin/plugin.json` et exposé
-comme marketplace mono-plugin par `.claude-plugin/marketplace.json`.
+**Binaire précompilé** (release GitHub, aucune toolchain requise) :
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/kolapsis/gofact/main/install.sh | sh
+gofact install -yes    # enregistre le serveur MCP dans les clients détectés
+```
+
+`gofact install` détecte Claude Desktop, Claude Code, LM Studio et Cursor, montre ce
+qu'il compte écrire (dry-run par défaut), sauvegarde chaque fichier avant modification
+et n'écrase jamais une entrée divergente sans `-force`. Windows : `install.ps1`.
+
+**Plugin Claude Code** — le dépôt est aussi un plugin : skill `creer-facture` + serveur
+MCP déclaré (compilé au 1ᵉʳ usage, toolchain Go requise pour ce build initial) :
 
 ```
 /plugin marketplace add kolapsis/gofact
 /plugin install gofact@gofact
 ```
 
-(ou `add <chemin/local/du/clone>` pour une installation depuis un clone.)
+**Depuis les sources** : `go build -o gofact .`
 
-Le skill appelle le binaire via `${CLAUDE_PLUGIN_ROOT}/gofact` et le **compile au 1ᵉʳ
-usage** (le binaire n'est pas versionné, cf. `.gitignore`). Toolchain Go requise pour ce
-build initial ; ensuite, simple exécution.
-
-Le skill travaille dans un **dossier de facturation local** (template HTML, registre de
-numérotation, logo) désigné par `GOFACT_INVOICES_DIR` — jamais versionné ici, puisqu'il
-contient des données réelles.
+Les organisations vivent dans des **dossiers locaux** (identité, registre, factures) —
+jamais versionnés ici : ils contiennent des données réelles. `GOFACT_INVOICES_DIR`
+reste honorée pour la compatibilité avec le skill historique.
 
 ## Limites connues
 

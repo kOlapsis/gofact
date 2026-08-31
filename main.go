@@ -44,6 +44,9 @@ func main() {
 		case "mcp":
 			runMCP(os.Args[2:])
 			return
+		case "install":
+			runInstall(os.Args[2:])
+			return
 		}
 	}
 	runGenerate(os.Args[1:])

@@ -32,9 +32,18 @@ const mustangVersion = "2.23.1"
 var verdictLine = regexp.MustCompile(`PDF:(valid|invalid)\s+XML:(valid|invalid)`)
 
 func TestOracleMustangValidatesOutput(t *testing.T) {
+	// Identité de test — fictive, cohérente avec testdata/facture.html.
+	t.Setenv("GOFACT_SELLER_NAME", "Studio Exemple")
+	t.Setenv("GOFACT_SELLER_SIRET", "12345678900014")
+	t.Setenv("GOFACT_SELLER_EMAIL", "contact@exemple.test")
+	t.Setenv("GOFACT_SELLER_ADDRESS", "1 rue de l'Exemple")
+	t.Setenv("GOFACT_SELLER_POSTAL_CODE", "33000")
+	t.Setenv("GOFACT_SELLER_CITY", "Bordeaux")
+	t.Setenv("GOFACT_PAYEE_IBAN", "FR7630001007941234567890185")
+
 	html := os.Getenv("GOFACT_ORACLE_HTML")
 	if html == "" {
-		t.Skip("GOFACT_ORACLE_HTML non défini (chemin d'une facture HTML de test)")
+		html = filepath.Join("testdata", "facture.html")
 	}
 	spec, err := LoadSpec(strings.TrimSuffix(html, filepath.Ext(html)) + ".json")
 	if err != nil {

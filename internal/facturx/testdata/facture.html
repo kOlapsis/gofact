@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<title>Facture 2026001 — ACME SAS</title>
+<style>
+  @page { size: A4; margin: 16mm; }
+  body { font: 13px/1.45 system-ui, sans-serif; color: #16181d; margin: 0; }
+  .page { max-width: 178mm; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: baseline;
+           border-bottom: 2px solid #16181d; padding-bottom: 8mm; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: .02em; }
+  .meta { text-align: right; font-size: 12px; }
+  .parties { display: flex; gap: 12mm; margin: 8mm 0; }
+  .parties section { flex: 1; }
+  .parties h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+                color: #666; margin: 0 0 2mm; }
+  table { width: 100%; border-collapse: collapse; margin-top: 4mm; }
+  th { background: #16181d; color: #fff; text-align: left; padding: 2.5mm 3mm; font-size: 11px; }
+  td { border-bottom: 1px solid #ddd; padding: 2.5mm 3mm; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .total td { border-bottom: none; font-weight: 700; font-size: 15px; }
+  footer { margin-top: 10mm; font-size: 10px; color: #555; }
+</style>
+<div class="page">
+  <header>
+    <h1>Facture 2026001</h1>
+    <div class="meta">Émise le 31 août 2026<br>Échéance : à réception</div>
+  </header>
+  <div class="parties">
+    <section><h2>Émetteur</h2>
+      Studio Exemple<br>1 rue de l'Exemple<br>33000 Bordeaux<br>SIRET 123 456 789 00014</section>
+    <section><h2>Client</h2>
+      ACME SAS<br>1 rue de la Paix<br>75002 Paris<br>SIRET 552 081 317 00015</section>
+  </div>
+  <table>
+    <tr><th>Prestation</th><th class="num">Qté (j)</th><th class="num">PU HT</th><th class="num">Total HT</th></tr>
+    <tr><td>Développement backend</td><td class="num">2,00</td><td class="num">600,00 €</td><td class="num">1 200,00 €</td></tr>
+    <tr class="total"><td colspan="3">Total net à payer</td><td class="num">1 200,00 €</td></tr>
+  </table>
+  <footer>TVA non applicable, art. 293 B du CGI. Règlement par virement — IBAN FR76 3000 1007 9412 3456 7890 185.<br>
+  En cas de retard de paiement, pénalités au taux annuel de trois fois le taux d'intérêt légal et
+  indemnité forfaitaire de recouvrement de 40 € (art. L441-10 et D441-5 du Code de commerce).</footer>
+</div>
+</html>
