@@ -24,9 +24,20 @@ chargé automatiquement par toute session travaillant sur ce dépôt.
 | Mar. / mer. / jeu. 08:15 | Publication du jour | Publie le contenu daté du jour, archive dans `published/`, relit les commentaires trois heures plus tard |
 | Vendredi 17:00 | Bilan | Relève les indicateurs, met à jour `METRICS.md`, ajuste `CALENDAR.md`, répond aux fils en attente |
 
-Chaque tâche s'exécute dans une session neuve. Elle retrouve tout son contexte
-dans ce dossier — d'où l'importance de tenir `published/` et `METRICS.md` à
-jour : c'est la seule mémoire de la machine.
+Les trois tâches sont rattachées à la session Claude Code
+`session_01N6raL8fnbX1oGGBxKFqKtb`, qui porte le dépôt et les accès GitHub.
+Elles reprennent donc la conversation là où elle s'est arrêtée, plutôt que de
+repartir de zéro.
+
+| Tâche | Identifiant | Cron (UTC) |
+| --- | --- | --- |
+| Production hebdomadaire | `trig_018pCzdqxh4WSrxyHCiMbWhc` | `0 6 * * 1` |
+| Publication du jour | `trig_01Ac9uzKVBtDLMeT1Lcrj51J` | `15 6 * * 2,3,4` |
+| Bilan hebdomadaire | `trig_012q2uwgS7s4o7WAAAF8YYcw` | `0 15 * * 5` |
+
+`published/` et `METRICS.md` restent malgré tout la mémoire de référence du
+dispositif : ils doivent être tenus à jour à chaque passage, pour qu'une
+session repartie de zéro puisse reprendre sans rien republier deux fois.
 
 > **Heure d'hiver.** Les tâches sont planifiées en UTC. Paris passe de UTC+2 à
 > UTC+1 le 25 octobre 2026 : décaler alors chaque tâche d'une heure plus tard
