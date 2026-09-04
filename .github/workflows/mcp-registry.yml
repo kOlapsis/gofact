@@ -24,9 +24,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # On sort la branche courante, pas le tag : les métadonnées du serveur et
+      # la procédure de publication doivent pouvoir corriger une soumission
+      # ratée sur une version déjà figée. Seuls les artefacts viennent du tag.
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag }}
 
       - name: Récupérer les bundles de la release
         env:
