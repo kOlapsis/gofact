@@ -54,10 +54,10 @@ Votre client MCP a déjà un serveur `gofact` pointant ailleurs. Vérifiez leque
 gagner, puis `gofact install -yes -force`. L'ancien fichier est sauvegardé en `.bak-…`.
 
 **Le plugin Claude Code n'expose pas les outils gofact**
-Le binaire n'est pas encore compilé (il faut la toolchain Go) : lancez une fois le
-skill `creer-facture`, ou exécutez `scripts/mcp-launcher.sh` dans le dossier du plugin,
-puis redémarrez la session. Sans Go : installez le binaire de release et
-`gofact install -yes`.
+Le serveur est déclaré comme la commande `gofact` : elle doit être installée et
+joignable dans le `PATH`. Installez le binaire de release, vérifiez avec
+`gofact version`, puis redémarrez la session. Aucune compilation n'est nécessaire —
+le binaire distribué est autonome.
 
 ## Factur-X
 
