@@ -132,10 +132,19 @@ func TestFullInvoiceFlow(t *testing.T) {
 		}
 	}
 
-	// 2 — pas de modèle : la note d'amorçage guide l'IA.
+	// 2 — pas de modèle figé : le modèle par défaut est servi, jamais une page
+	// blanche, avec l'identité et les mentions légales déjà en place.
 	_, raw = call(t, cs, "get_invoice_template", orgParam{})
 	if !strings.Contains(raw, "{{NUMERO}}") {
-		t.Errorf("la note d'amorçage doit exiger le jeton : %s", raw)
+		t.Errorf("le modèle servi doit porter le jeton : %s", raw)
+	}
+	if !strings.Contains(raw, `"is_default":true`) {
+		t.Errorf("le modèle par défaut doit être annoncé comme tel : %s", raw)
+	}
+	for _, want := range []string{"Studio Exemple", "293 B du CGI", "L441-10"} {
+		if !strings.Contains(raw, want) {
+			t.Errorf("modèle par défaut : %q absent de %s", want, raw)
+		}
 	}
 
 	// 3 — le numéro annoncé n'est pas consommé.
@@ -318,5 +327,58 @@ func TestOnboardingFlow(t *testing.T) {
 	}
 	if !strings.Contains(raw, "update_template") {
 		t.Errorf("l'avertissement doit orienter vers update_template : %s", raw)
+	}
+}
+
+// Le modèle par défaut est un plancher de conformité : il doit produire un
+// Factur-X valide sans qu'un modèle de langage ait rien à composer.
+func TestDefaultTemplateProducesConformInvoice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("rendu Chrome requis")
+	}
+	if !facturx.BrowserAvailable() {
+		t.Skip("aucun navigateur de rendu sur ce poste — définissez GOFACT_CHROME pour jouer ce test")
+	}
+	t.Setenv("GOFACT_OFFLINE", "1")
+	testOrg(t)
+	cs := session(t)
+
+	res, raw := call(t, cs, "get_invoice_template", orgParam{})
+	if res.IsError {
+		t.Fatalf("get_invoice_template en erreur : %s", raw)
+	}
+	sc, _ := json.Marshal(res.StructuredContent)
+	var tpl struct {
+		HTML      string `json:"html"`
+		IsDefault bool   `json:"is_default"`
+	}
+	if err := json.Unmarshal(sc, &tpl); err != nil {
+		t.Fatalf("sortie illisible : %v — %s", err, raw)
+	}
+	if !tpl.IsDefault || tpl.HTML == "" {
+		t.Fatalf("modèle par défaut attendu : %s", raw)
+	}
+
+	res, raw = call(t, cs, "create_invoice", map[string]any{
+		"html": tpl.HTML,
+		"spec": map[string]any{
+			"issue_date": "2026-08-31",
+			"buyer": map[string]any{
+				"name": "ACME SAS", "siret": "55208131700015",
+				"address": "1 rue de la Paix", "postal_code": "75002", "city": "Paris",
+			},
+			"lines": []map[string]any{{"name": "Prestation", "unit_price_ht_cents": 100000}},
+		},
+	})
+	if res.IsError {
+		t.Fatalf("le modèle par défaut doit produire une facture : %s", raw)
+	}
+	var out createOutT
+	sc, _ = json.Marshal(res.StructuredContent)
+	if err := json.Unmarshal(sc, &out); err != nil {
+		t.Fatalf("sortie illisible : %v — %s", err, raw)
+	}
+	if !out.Conform {
+		t.Errorf("Factur-X non conforme depuis le modèle par défaut : %+v", out)
 	}
 }

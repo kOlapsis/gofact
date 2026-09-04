@@ -1,7 +1,17 @@
 # Ligne de commande
 
-Tout ce que fait le serveur MCP existe aussi au terminal — c'est le même binaire et les
-mêmes garanties. Utile pour scripter, déboguer, ou travailler sans IA.
+C'est le même binaire, mais pas le même contrat. Le terminal expose le **mode direct** :
+un convertisseur HTML + JSON → Factur-X, utile pour scripter, déboguer, ou travailler sans
+IA. Il applique les mêmes règles EN 16931 et le même auto-contrôle que le serveur MCP.
+
+!!! warning "Le mode direct n'émet pas de facture"
+    `-html` rend le fichier qu'on lui donne : il **n'attribue aucun numéro** et
+    **n'inscrit rien au registre**. La numérotation légale — séquence continue, sans
+    trou, jamais réutilisée — n'existe que par les outils MCP.
+
+    Dans un dossier d'organisation, `gofact -html` refuse donc de générer un fichier
+    inconnu du registre, et ne sert plus qu'à re-rendre une facture déjà émise. Pour en
+    émettre une, demandez-la à votre IA (`create_invoice`).
 
 ## Générer une facture
 

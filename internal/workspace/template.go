@@ -1,14 +1,19 @@
 package workspace
 
 import (
+	"bytes"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/kolapsis/gofact/internal/facturx"
 )
 
 // Modèle de facture de l'organisation. Le HTML est généré par une IA — c'est le
@@ -112,4 +117,50 @@ func Fingerprint(html string) string {
 
 	sum := sha256.Sum256([]byte(strings.Join(parts, "\n")))
 	return hex.EncodeToString(sum[:])
+}
+
+//go:embed modele-defaut.html
+var defaultTemplateHTML string
+
+// DefaultTemplate rend le modèle de facture livré avec gofact, renseigné de
+// l'identité de l'organisation. Il existe pour qu'une première facture ne parte
+// jamais d'une page blanche : les mentions légales françaises obligatoires y
+// sont, quel que soit le modèle de langage qui compose la facture. Le jeton
+// {{NUMERO}} y est préservé — c'est le serveur qui inscrit le numéro.
+func (o *Org) DefaultTemplate() (string, error) {
+	cfg := o.Config()
+	seller := cfg.Seller
+	if strings.TrimSpace(seller.Name) == "" {
+		seller.Name = o.Name()
+	}
+	tpl, err := template.New("modele").Delims("[[", "]]").Parse(defaultTemplateHTML)
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	err = tpl.Execute(&buf, struct {
+		Seller     facturx.PartySpec
+		IBAN       string
+		VATMention string
+	}{Seller: seller, IBAN: formatIBAN(cfg.IBAN), VATMention: cfg.VATExemptMention})
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// formatIBAN regroupe l'IBAN par quatre caractères — la forme imprimée usuelle.
+func formatIBAN(iban string) string {
+	iban = strings.ReplaceAll(iban, " ", "")
+	if iban == "" {
+		return ""
+	}
+	var b strings.Builder
+	for i, r := range iban {
+		if i > 0 && i%4 == 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }

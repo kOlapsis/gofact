@@ -195,14 +195,17 @@ func addOrgTools(s *mcp.Server) {
 	})
 
 	type templateOut struct {
-		HTML string `json:"html,omitempty"`
-		Note string `json:"note"`
+		HTML      string `json:"html,omitempty"`
+		IsDefault bool   `json:"is_default,omitempty"`
+		Note      string `json:"note"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_invoice_template",
 		Description: "Modèle HTML de référence de l'organisation, figé lors de la première facture. " +
-			"S'il existe, REPARTIR DE CE MODÈLE pour toute nouvelle facture (mêmes classes, même " +
-			"structure, même feuille de style) : les factures d'une même entité doivent se ressembler.",
+			"TOUJOURS l'appeler avant de composer une facture, et REPARTIR DU HTML renvoyé (mêmes " +
+			"classes, même structure, même feuille de style) : les factures d'une même entité doivent " +
+			"se ressembler. Tant qu'aucun modèle n'est figé, l'outil renvoie le modèle par défaut de " +
+			"gofact (is_default) — jamais rien, donc jamais de page blanche.",
 		Annotations: readOnly("Modèle de facture"),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in orgParam) (*mcp.CallToolResult, templateOut, error) {
 		o, err := resolveOrg(in.Org)
@@ -214,11 +217,16 @@ func addOrgTools(s *mcp.Server) {
 			return nil, templateOut{}, err
 		}
 		if tpl == "" {
-			return nil, templateOut{Note: "Aucun modèle encore : c'est le moment de le CRÉER AVEC " +
-				"l'utilisateur. Lui demander ses envies (logo, couleurs, ton, mentions à faire figurer), " +
-				"composer un HTML de facture A4 soigné (CSS embarqué, polices système, pas de <a href>, " +
-				"logo vectoriel, jeton {{NUMERO}}), puis le lui montrer avec preview_invoice et itérer " +
-				"jusqu'à ce qu'il soit satisfait. La première facture créée en fera le modèle de référence."}, nil
+			tpl, err = o.DefaultTemplate()
+			if err != nil {
+				return nil, templateOut{}, err
+			}
+			return nil, templateOut{HTML: tpl, IsDefault: true, Note: "Aucun modèle figé : voici le modèle " +
+				"par défaut de gofact, déjà renseigné de l'identité de l'organisation et des mentions " +
+				"légales françaises obligatoires. NE PAS repartir d'une page blanche — partir de ce " +
+				"modèle, y placer les données de la facture, puis demander à l'utilisateur ce qu'il " +
+				"souhaite changer (logo, couleurs, ton) et itérer avec preview_invoice. La première " +
+				"facture créée figera le résultat comme modèle de référence."}, nil
 		}
 		return nil, templateOut{HTML: tpl, Note: "Modèle de référence : en repartir et n'adapter que les " +
 			"contenus (client, lignes, montants, dates), en gardant {{NUMERO}}. La mise en page peut " +

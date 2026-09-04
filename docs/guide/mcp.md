@@ -12,7 +12,7 @@ garantit.
 |---|---|
 | `list_organizations` | Les entités émettrices configurées — le premier appel de toute session |
 | `get_organization` | Fiche d'une organisation : identité publique, compteurs, modèle. Jamais de secret, jamais d'IBAN en clair |
-| `get_invoice_template` | Le modèle HTML figé de l'organisation, à réutiliser pour chaque facture |
+| `get_invoice_template` | Le modèle HTML de l'organisation, à réutiliser pour chaque facture — le modèle par défaut de gofact tant qu'aucun n'est figé |
 | `search_client` | Historique de facturation d'abord, annuaire SIRENE ensuite |
 | `find_routing_address` | Adressabilité Peppol d'un SIREN — indispensable avant un dépôt PDP |
 | `preview_next_number` | Le prochain numéro, **sans le consommer** — pour l'annoncer avant confirmation |

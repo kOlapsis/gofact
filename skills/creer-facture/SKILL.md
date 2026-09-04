@@ -54,16 +54,18 @@ devis de référence le cas échéant.
   (`840 €`, `1 120 €`, `1 250,50 €`).
 
 ### 4 — Le HTML
-`get_invoice_template` :
+`get_invoice_template` renvoie toujours un HTML — **jamais de page blanche**.
 - **Modèle existant** → en repartir, n'adapter que les contenus (client, lignes,
   montants, dates).
-- **Pas de modèle** (première fois) → c'est l'**onboarding du modèle**, à faire avec
-  l'utilisateur : demander ses envies (logo, couleurs, ton, mentions), composer une
-  facture A4 soignée — CSS embarqué, **polices système** (pas de webfont), **pas de
-  `<a href>`**, logo vectoriel inline, mentions légales françaises (pénalités de retard
-  3× taux légal, indemnité de recouvrement 40 €, escompte : néant), régime de TVA de
-  l'organisation — puis la montrer avec **`preview_invoice`** et itérer jusqu'à ce que
-  l'utilisateur soit satisfait. Sa première facture figera ce modèle.
+- **`is_default: true`** (première fois) → c'est le modèle livré avec gofact, déjà
+  renseigné de l'identité de l'organisation et des mentions légales françaises
+  obligatoires (pénalités de retard 3× taux légal, indemnité de recouvrement 40 €,
+  escompte : néant, régime de TVA). Y placer les données de la facture, montrer le
+  résultat avec **`preview_invoice`**, puis demander à l'utilisateur ce qu'il veut
+  changer (logo, couleurs, ton, mentions) et itérer. Sa première facture figera le
+  résultat comme modèle.
+- Contraintes de rendu à conserver : CSS embarqué, **polices système** (pas de webfont),
+  **pas de `<a href>`**, logo vectoriel inline.
 - La mise en page **peut évoluer** ensuite : si l'utilisateur veut changer de visuel,
   itérer avec `preview_invoice` puis `create_invoice` avec `update_template=true`.
   Ce qui ne bouge jamais, c'est la numérotation — pas le visuel.
