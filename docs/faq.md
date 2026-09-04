@@ -27,7 +27,9 @@ fonctionne entièrement hors ligne, annuaires exceptés.
 
 **« vendeur non configuré — renseignez GOFACT_SELLER_NAME… »**
 Aucune identité d'émetteur trouvée. Créez une organisation (`gofact org init` ou
-`init_organization`), ou complétez le `.env` du dossier.
+`init_organization`), ou complétez l'identité existante avec
+`update_organization` — c'est aussi la sortie quand une facture est refusée sur
+`BR-50` faute d'IBAN.
 
 **« BR-50 : … l'IBAN du compte de règlement (BT-84) est requis »**
 La facture annonce un paiement par virement sans donner de compte à créditer — le

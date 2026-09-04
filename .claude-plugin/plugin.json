@@ -20,8 +20,8 @@
   ],
   "mcpServers": {
     "gofact": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/mcp-launcher.sh",
-      "args": []
+      "command": "gofact",
+      "args": ["mcp"]
     }
   }
 }

@@ -24,6 +24,7 @@ garantit.
 | Outil | Rôle |
 |---|---|
 | `init_organization` | Crée un dossier d'organisation (avec `last_invoice_number` pour reprendre une numérotation existante) ; refuse d'écraser l'existant |
+| `update_organization` | Corrige l'identité de l'émetteur après coup — nom, SIRET, adresse, TVA, IBAN. Seuls les champs fournis changent ; le reste du `.env`, identifiants de plateforme compris, est conservé |
 | `initialize_numbering` | Reprend une séquence existante sur un dossier déjà créé — le compteur ne peut que monter |
 | `preview_invoice` | PDF d'aperçu marqué SPÉCIMEN — itérer sur le modèle **sans rien consommer** |
 | `create_invoice` | **La transaction** : numéro + fichiers + PDF Factur-X + registre, en un appel. `update_template=true` officialise une nouvelle mise en page |

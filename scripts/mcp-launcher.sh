@@ -1,11 +1,15 @@
 #!/bin/sh
-# Lance le serveur MCP gofact depuis le plugin Claude Code.
+# Lance le serveur MCP gofact depuis un dépôt cloné — usage développement.
 #
-# Ce script est lancé par le client IA, pas par un humain : il doit aboutir sur
-# la machine d'un indépendant qui n'a ni Go, ni compilateur, ni patience. Il
-# résout donc le binaire par ordre de coût croissant — déjà installé, sinon
-# téléchargé depuis la release, et compilé seulement en dernier recours, quand
-# le plugin est en fait un dépôt cloné par un développeur.
+# Ce script n'est PAS référencé par .claude-plugin/plugin.json, et ne doit pas
+# l'être : un client MCP abandonne au bout de dix secondes par défaut, et le
+# format de plugin n'offre aucune configuration conditionnelle par plateforme,
+# ce qui rend un lanceur .sh inutilisable sous Windows. Le plugin appelle donc
+# directement `gofact mcp`, en supposant le binaire installé.
+#
+# Ici, on résout le binaire par coût croissant : déjà installé, sinon téléchargé
+# depuis la release, et compilé en dernier recours. Pratique pour un contributeur
+# qui veut brancher son client IA sur son propre clone.
 #
 # stdout appartient au JSON-RPC : toute sortie humaine part sur stderr.
 set -e

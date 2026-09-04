@@ -106,6 +106,60 @@ func addOrgTools(s *mcp.Server) {
 		return nil, summarize(o), nil
 	})
 
+	// Corriger l'identité après coup n'est pas un confort : sans cet outil, une
+	// organisation créée sans IBAN est une impasse. La facture échoue sur BR-50
+	// à la toute dernière étape, et init_organization refuse — à raison —
+	// d'écraser un dossier qui porte déjà un registre de numérotation.
+	type updateIn struct {
+		orgParam
+		Name       *string `json:"name,omitempty" jsonschema:"nom de l'entité émettrice"`
+		SIRET      *string `json:"siret,omitempty" jsonschema:"SIRET (14 chiffres)"`
+		SIREN      *string `json:"siren,omitempty" jsonschema:"SIREN (9 chiffres)"`
+		VATNumber  *string `json:"vat_number,omitempty" jsonschema:"n° TVA intracommunautaire ; chaîne vide pour revenir à la franchise 293 B"`
+		Email      *string `json:"email,omitempty"`
+		Address    *string `json:"address,omitempty" jsonschema:"adresse (rue)"`
+		PostalCode *string `json:"postal_code,omitempty"`
+		City       *string `json:"city,omitempty"`
+		Country    *string `json:"country,omitempty" jsonschema:"code pays ISO à deux lettres ; FR par défaut"`
+		IBAN       *string `json:"iban,omitempty" jsonschema:"IBAN de règlement — requis pour une facture payable par virement (BR-50)"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_organization",
+		Description: "Corrige l'identité d'une organisation existante : nom, SIRET, adresse, n° de TVA, IBAN. " +
+			"À utiliser dès qu'une facture est refusée faute d'une donnée de l'émetteur — un IBAN manquant " +
+			"fait échouer BR-50 à la dernière étape. Seuls les champs fournis sont modifiés ; les autres, " +
+			"y compris les identifiants de plateforme, sont conservés intacts. Une chaîne vide efface le " +
+			"champ. Demander les valeurs à l'utilisateur, ne jamais les inventer.",
+		Annotations: &mcp.ToolAnnotations{Title: "Corriger l'identité de l'organisation", ReadOnlyHint: false,
+			DestructiveHint: boolPtr(false), IdempotentHint: true},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in updateIn) (*mcp.CallToolResult, orgSummary, error) {
+		o, err := resolveOrg(in.Org)
+		if err != nil {
+			return nil, orgSummary{}, err
+		}
+		changes := map[string]string{}
+		for key, value := range map[string]*string{
+			"GOFACT_SELLER_NAME":        in.Name,
+			"GOFACT_SELLER_SIRET":       in.SIRET,
+			"GOFACT_SELLER_SIREN":       in.SIREN,
+			"GOFACT_SELLER_VAT_NUMBER":  in.VATNumber,
+			"GOFACT_SELLER_EMAIL":       in.Email,
+			"GOFACT_SELLER_ADDRESS":     in.Address,
+			"GOFACT_SELLER_POSTAL_CODE": in.PostalCode,
+			"GOFACT_SELLER_CITY":        in.City,
+			"GOFACT_SELLER_COUNTRY":     in.Country,
+			"GOFACT_PAYEE_IBAN":         in.IBAN,
+		} {
+			if value != nil {
+				changes[key] = *value
+			}
+		}
+		if err := o.UpdateIdentity(changes); err != nil {
+			return nil, orgSummary{}, err
+		}
+		return nil, summarize(o), nil
+	})
+
 	type numberingIn struct {
 		orgParam
 		LastNumber string `json:"last_invoice_number" jsonschema:"dernier numéro déjà émis (ex. 2026011) — le prochain émis sera le suivant"`
