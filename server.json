@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.kolapsis/gofact",
+  "description": "Creates compliant French e-invoices locally: Factur-X PDF/A-3 with EN 16931 CII XML, legal numbering",
+  "repository": {
+    "url": "https://github.com/kOlapsis/gofact",
+    "source": "github"
+  },
+  "websiteUrl": "https://kolapsis.github.io/gofact/",
+  "version": "1.0.0",
+  "packages": []
+}
