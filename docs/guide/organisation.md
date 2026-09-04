@@ -48,7 +48,10 @@ l'abaisser réutiliserait des numéros déjà émis, gofact le refuse.
 La hiérarchie est claire : la **numérotation est l'invariant** — la mise en page, elle,
 peut évoluer librement. Le modèle n'existe que pour la cohérence au quotidien :
 
-- il se **crée en conversation**, avec des aperçus PDF (`preview_invoice`, marqué
+- il **part du modèle livré avec gofact** — A4, mentions légales françaises
+  obligatoires, votre identité déjà renseignée : votre première facture n'est jamais
+  une page blanche, quel que soit le modèle de langage qui la compose ;
+- il se **retouche en conversation**, avec des aperçus PDF (`preview_invoice`, marqué
   SPÉCIMEN, sans rien consommer) jusqu'à ce que le rendu vous convienne ;
 - la première facture le fige (`modele-facture.html`) et `get_invoice_template` le
   resert à l'IA pour les suivantes ;

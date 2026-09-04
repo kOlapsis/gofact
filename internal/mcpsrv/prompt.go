@@ -24,13 +24,14 @@ avec les outils gofact. Déroulé :
    possible son adresse de routage Peppol (souvent le SIREN, scheme 0225).
 3. Collecter les prestations : libellé, quantité (jours ou unités), prix
    unitaire HT. Tous les montants se transmettent en CENTIMES dans spec.
-4. get_invoice_template — s'il existe un modèle, en repartir et n'adapter que
-   les contenus. Sinon, c'est l'occasion de CRÉER le modèle avec l'utilisateur :
-   demander ses envies (logo, couleurs, ton), composer un HTML A4 soigné (CSS
-   embarqué, polices système, pas de <a href>, logo vectoriel, jeton {{NUMERO}}),
-   le montrer avec preview_invoice et itérer jusqu'à satisfaction. La mise en
-   page peut évoluer plus tard (create_invoice avec update_template=true) —
-   c'est la numérotation qui ne bouge jamais, pas le visuel.
+4. get_invoice_template — TOUJOURS en repartir : l'outil renvoie le modèle figé
+   de l'organisation, ou à défaut le modèle par défaut de gofact (is_default),
+   déjà renseigné de l'identité et des mentions légales obligatoires. Ne jamais
+   composer une facture à partir d'une page blanche. N'adapter que les contenus,
+   puis demander à l'utilisateur ce qu'il veut changer (logo, couleurs, ton),
+   montrer le résultat avec preview_invoice et itérer. La mise en page peut
+   évoluer plus tard (create_invoice avec update_template=true) — c'est la
+   numérotation qui ne bouge jamais, pas le visuel.
 5. preview_next_number — annoncer le numéro, récapituler la facture (client,
    lignes, totaux HT/TTC, date) et demander confirmation à l'utilisateur.
 6. create_invoice — après accord seulement. Relayer le chemin du PDF produit

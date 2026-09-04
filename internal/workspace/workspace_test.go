@@ -472,3 +472,57 @@ func TestUpdateIdentityPreservesEverythingElse(t *testing.T) {
 		t.Error("modification d'un secret de plateforme acceptée")
 	}
 }
+
+func TestDefaultTemplate(t *testing.T) {
+	org := newOrg(t)
+	if err := org.UpdateIdentity(map[string]string{
+		"GOFACT_SELLER_ADDRESS": "1 rue Sainte-Catherine",
+		"GOFACT_SELLER_CITY":    "Bordeaux",
+		"GOFACT_PAYEE_IBAN":     "FR7630001007941234567890185",
+	}); err != nil {
+		t.Fatalf("UpdateIdentity: %v", err)
+	}
+
+	html, err := org.DefaultTemplate()
+	if err != nil {
+		t.Fatalf("DefaultTemplate: %v", err)
+	}
+
+	// Le jeton survit au rendu : c'est le serveur qui inscrit le numéro.
+	if !strings.Contains(html, "{{NUMERO}}") {
+		t.Error("le jeton {{NUMERO}} a disparu du modèle par défaut")
+	}
+	// Pas d'action de template non résolue.
+	if strings.Contains(html, "[[") || strings.Contains(html, "]]") {
+		t.Error("délimiteur de template non résolu dans le modèle par défaut")
+	}
+	// L'identité de l'organisation est renseignée, IBAN groupé par quatre.
+	for _, want := range []string{
+		"Studio Exemple", "1 rue Sainte-Catherine", "Bordeaux",
+		"SIRET 12345678900014", "FR76 3000 1007 9412 3456 7890 185",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("modèle par défaut : %q absent", want)
+		}
+	}
+	// Les mentions légales obligatoires ne dépendent pas du modèle de langage.
+	for _, want := range []string{"293 B du CGI", "trois fois le taux d'intérêt légal", "40 €", "Escompte"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("mention légale absente du modèle par défaut : %q", want)
+		}
+	}
+	// Contraintes de rendu Chrome hors ligne.
+	if strings.Contains(html, "<a href") || strings.Contains(html, "@import") {
+		t.Error("le modèle par défaut ne doit contenir ni lien ni ressource externe")
+	}
+
+	// Sans IBAN ni adresse, le rendu reste valide et n'annonce pas de virement.
+	bare := newOrg(t)
+	html, err = bare.DefaultTemplate()
+	if err != nil {
+		t.Fatalf("DefaultTemplate (identité minimale): %v", err)
+	}
+	if strings.Contains(html, "IBAN") {
+		t.Error("mention IBAN rendue alors qu'aucun IBAN n'est configuré")
+	}
+}
