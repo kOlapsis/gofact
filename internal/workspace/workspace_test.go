@@ -397,3 +397,78 @@ func TestReplaceTemplate(t *testing.T) {
 		t.Error("le remplacement du modèle doit être journalisé")
 	}
 }
+
+// Une organisation créée sans IBAN est une impasse tant qu'on ne peut pas la
+// corriger : la facture échoue sur BR-50 à la dernière étape et Init refuse
+// d'écraser le dossier. UpdateIdentity est la sortie — à condition de ne rien
+// détruire au passage, en particulier les identifiants de plateforme que
+// l'utilisateur a pu ajouter à la main.
+func TestUpdateIdentityPreservesEverythingElse(t *testing.T) {
+	org := newOrg(t)
+	envPath := filepath.Join(org.Path, EnvFile)
+
+	raw, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("lecture du .env : %v", err)
+	}
+	extra := string(raw) + "\n# ajouté à la main par l'utilisateur\n" +
+		"SUPERPDP_CLIENT_ID=\"abc\"\nSUPERPDP_CLIENT_SECRET=\"chut\"\n"
+	if err := os.WriteFile(envPath, []byte(extra), 0o600); err != nil {
+		t.Fatalf("écriture du .env : %v", err)
+	}
+	org, err = Open(org.Path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	if org.Config().IBAN != "" {
+		t.Fatal("IBAN présent alors que l'organisation a été créée sans")
+	}
+	if err := org.UpdateIdentity(map[string]string{
+		"GOFACT_PAYEE_IBAN":   "FR7630006000011234567890189",
+		"GOFACT_SELLER_CITY":  "Bordeaux",
+		"GOFACT_SELLER_SIRET": "98765432100019",
+	}); err != nil {
+		t.Fatalf("UpdateIdentity: %v", err)
+	}
+
+	if got := org.Config().IBAN; got != "FR7630006000011234567890189" {
+		t.Errorf("IBAN non pris en compte : %q", got)
+	}
+	if got := org.Identity().City; got != "Bordeaux" {
+		t.Errorf("ville non ajoutée : %q", got)
+	}
+	if got := org.Identity().SIRET; got != "98765432100019" {
+		t.Errorf("SIRET non remplacé : %q", got)
+	}
+	if got := org.Identity().Name; got != "Studio Exemple" {
+		t.Errorf("le nom a bougé sans qu'on le demande : %q", got)
+	}
+
+	// Ce qui n'était pas demandé doit avoir survécu, secrets et commentaire compris.
+	after, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("relecture du .env : %v", err)
+	}
+	for _, want := range []string{"SUPERPDP_CLIENT_ID", `SUPERPDP_CLIENT_SECRET="chut"`, "ajouté à la main"} {
+		if !strings.Contains(string(after), want) {
+			t.Errorf("%q a disparu du .env :\n%s", want, after)
+		}
+	}
+	if strings.Count(string(after), "GOFACT_SELLER_SIRET") != 1 {
+		t.Errorf("SIRET dupliqué au lieu d'être remplacé :\n%s", after)
+	}
+
+	// Une valeur vide efface la clé — seul moyen de revenir à la franchise.
+	if err := org.UpdateIdentity(map[string]string{"GOFACT_SELLER_CITY": ""}); err != nil {
+		t.Fatalf("UpdateIdentity (effacement) : %v", err)
+	}
+	if got := org.Identity().City; got != "" {
+		t.Errorf("ville non effacée : %q", got)
+	}
+
+	// Et on ne touche pas à ce qui n'est pas de l'identité.
+	if err := org.UpdateIdentity(map[string]string{"SUPERPDP_CLIENT_SECRET": "vole"}); err == nil {
+		t.Error("modification d'un secret de plateforme acceptée")
+	}
+}

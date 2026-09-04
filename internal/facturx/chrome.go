@@ -42,6 +42,11 @@ func detectChrome() string {
 	return ""
 }
 
+// BrowserAvailable indique si un navigateur de rendu est joignable sur ce poste.
+// Les tests de bout en bout s'en servent pour se dispenser plutôt que d'échouer
+// là où la machine n'a simplement pas de navigateur à leur offrir.
+func BrowserAvailable() bool { return detectChrome() != "" }
+
 // usable écarte les répertoires et les paquets confinés (snap, flatpak), qui ne
 // peuvent pas lire les fichiers temporaires que gofact leur soumet.
 func usable(path string) bool {
@@ -74,6 +79,11 @@ func chromeMissingError() error {
 		hint = "installez Google Chrome (https://google.com/chrome) ou le paquet chromium de votre distribution " +
 			"— attention, la version snap est confinée et inutilisable"
 	}
+	// Le recours proposé doit exister dans les deux modes. En MCP il n'y a pas
+	// de ligne de commande où passer -chrome : c'est le .env qui sert, et il est
+	// désormais lu par `gofact mcp` comme par le mode direct.
 	return fmt.Errorf("facturx: aucun navigateur trouvé pour le rendu : %s. "+
-		"Vous pouvez aussi désigner l'exécutable avec %s ou l'option -chrome", hint, envChrome)
+		"Vous pouvez aussi désigner l'exécutable en posant %s=/chemin/vers/chrome "+
+		"dans ./.env ou ~/.config/gofact/.env (ou avec l'option -chrome en ligne de commande)",
+		hint, envChrome)
 }

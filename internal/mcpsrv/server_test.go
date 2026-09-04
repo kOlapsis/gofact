@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kolapsis/gofact/internal/facturx"
 	"github.com/kolapsis/gofact/internal/workspace"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -112,6 +113,9 @@ func TestToolAnnotations(t *testing.T) {
 func TestFullInvoiceFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("rendu Chrome requis")
+	}
+	if !facturx.BrowserAvailable() {
+		t.Skip("aucun navigateur de rendu sur ce poste — définissez GOFACT_CHROME pour jouer ce test")
 	}
 	t.Setenv("GOFACT_OFFLINE", "1") // pas de réseau en test : historique seul
 	org := testOrg(t)
@@ -248,6 +252,9 @@ func TestSendInvoiceRequiresConfirmation(t *testing.T) {
 func TestOnboardingFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("rendu Chrome requis")
+	}
+	if !facturx.BrowserAvailable() {
+		t.Skip("aucun navigateur de rendu sur ce poste — définissez GOFACT_CHROME pour jouer ce test")
 	}
 	t.Setenv("GOFACT_OFFLINE", "1")
 	org := testOrg(t)

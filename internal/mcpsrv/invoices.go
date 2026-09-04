@@ -130,7 +130,9 @@ func addInvoiceTools(s *mcp.Server) {
 			return nil, createOutT{}, err
 		}
 		out, err := createInvoice(ctx, o, in.HTML, in.Spec, in.UpdateTemplate)
-		return nil, out, err
+		// À la frontière de l'outil : la validation des règles échoue tôt, bien
+		// avant le rendu, et tous ces chemins méritent la même indication.
+		return nil, out, hintIdentityFix(err)
 	})
 }
 
@@ -311,4 +313,17 @@ func firstLineName(spec facturx.Spec) string {
 func str(v any) string {
 	s, _ := v.(string)
 	return s
+}
+
+// hintIdentityFix complète une erreur de conformité qui renvoie vers une
+// variable d'environnement. En mode MCP, l'utilisateur n'a pas de terminal où
+// la poser : sans cette indication, une règle comme BR-50 est une impasse dont
+// ni lui ni le modèle ne connaissent la sortie.
+func hintIdentityFix(err error) error {
+	if err == nil || !strings.Contains(err.Error(), "GOFACT_") {
+		return err
+	}
+	return fmt.Errorf("%w\n\nCette donnée fait partie de l'identité de l'organisation : "+
+		"corrigez-la avec update_organization, puis relancez la création. "+
+		"Aucun numéro n'a été consommé.", err)
 }

@@ -1,6 +1,6 @@
 ---
 name: creer-facture
-version: 3.0.0
+version: 1.0.0
 description: Crée une facture électronique française conforme (Factur-X PDF/A-3 + XML CII EN 16931) en s'appuyant sur les outils MCP gofact — numérotation légale, registre, modèle figé, envoi PDP. Gère factures standard, acomptes et soldes.
 triggers:
   - créer une facture
@@ -23,9 +23,9 @@ conformité EN 16931. Ce skill décrit le déroulé et les règles de compositio
 recalcule rien, n'écrit rien et n'invente rien que les outils savent faire.
 
 > Si les outils `gofact` (`list_organizations`, `create_invoice`…) n'apparaissent pas :
-> le binaire n'a pas encore été compilé. Lancer une fois
-> `"${CLAUDE_PLUGIN_ROOT}/scripts/mcp-launcher.sh" </dev/null` (Bash) puis redémarrer la
-> session, ou demander à l'utilisateur d'exécuter `gofact install -yes`.
+> le binaire n'est pas installé, ou pas dans le `PATH`. Demander à l'utilisateur
+> d'installer la release puis d'exécuter `gofact install -yes`, et de redémarrer la
+> session.
 
 ## Déroulé
 

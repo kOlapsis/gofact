@@ -108,6 +108,7 @@ claude mcp add gofact -- /chemin/vers/gofact mcp
 ```
 
 Outils : `list_organizations`, `get_organization`, `init_organization`,
+`update_organization`,
 `search_client`, `get_invoice_template`, `preview_next_number`, `list_invoices`,
 `create_invoice`, `send_invoice` (seul outil destructif — dépôt PDP,
 confirmation explicite exigée), `get_invoice_status`. Prompt : `nouvelle-facture`.

@@ -23,4 +23,59 @@ checksum:
   name_template: checksums.txt
 
 changelog:
-  use: git
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - '^style:'
+      - 'Merge pull request'
+      - 'Merge branch'
+  groups:
+    - title: Nouveautés
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Corrections
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Documentation
+      regexp: '^.*?docs(\(.+\))??!?:.+$'
+      order: 2
+    - title: Autres changements
+      order: 999
+
+release:
+  name_template: "gofact {{ .Tag }}"
+  header: |
+    Factur-X conforme en local : PDF/A-3 avec le XML CII EN 16931 embarqué octet
+    pour octet. Un binaire, un navigateur, aucun abonnement.
+
+    ### Installation
+
+    ```sh
+    # Linux, macOS
+    curl -fsSL https://raw.githubusercontent.com/kOlapsis/gofact/main/install.sh | sh
+    ```
+
+    ```powershell
+    # Windows
+    irm https://raw.githubusercontent.com/kOlapsis/gofact/main/install.ps1 | iex
+    ```
+
+    Puis `gofact install` pour déclarer le serveur MCP à votre client IA.
+    Le [guide de démarrage](https://kolapsis.github.io/gofact/demarrage/) mène à
+    la première facture.
+
+    ---
+  footer: |
+
+    ---
+
+    **gofact n'est pas une plateforme agréée.** Il produit le fichier Factur-X ;
+    votre plateforme agréée le transporte jusqu'à votre client et à
+    l'administration.
+
+    Documentation : <https://kolapsis.github.io/gofact/> ·
+    Un problème, une question : [ouvrez une issue](https://github.com/kOlapsis/gofact/issues/new)

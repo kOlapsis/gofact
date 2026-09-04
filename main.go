@@ -22,6 +22,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -33,8 +34,15 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 1 {
+		usage(os.Stdout)
+		return
+	}
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "help", "-h", "--help":
+			usage(os.Stdout)
+			return
 		case "send":
 			runSend(os.Args[2:])
 			return
@@ -55,6 +63,33 @@ func main() {
 	runGenerate(os.Args[1:])
 }
 
+// usage décrit le binaire par ce qu'il sait faire, pas par ses drapeaux. La
+// commande la plus utilisée est `mcp`, lancée par le client IA : la sortie par
+// défaut doit la nommer, sans quoi l'utilisateur qui tape « gofact » pour voir
+// ne trouve que le mode direct.
+func usage(w io.Writer) {
+	fmt.Fprint(w, `gofact — factures Factur-X (PDF/A-3 + XML CII EN 16931), en local.
+
+Commandes :
+  gofact install               déclare le serveur MCP auprès des clients IA du poste
+  gofact mcp                   démarre le serveur MCP (stdio) — lancé par votre client IA
+  gofact org init|list|show|set-counter
+                               gère les dossiers d'organisation et la numérotation
+  gofact send -pdf <fichier>   dépose un Factur-X existant sur votre plateforme agréée
+  gofact version               affiche la version
+
+Mode direct, sans IA :
+  gofact -html <facture.html>  génère le Factur-X à partir du HTML et de son JSON
+                               (`+"`gofact -html x.html -h`"+` pour les options)
+
+Pour commencer : `+"`gofact install`"+`, puis demandez une facture à votre IA.
+Documentation : https://kolapsis.github.io/gofact/
+
+gofact n'est pas une plateforme agréée : il produit le fichier, votre
+plateforme agréée le transporte.
+`)
+}
+
 // runGenerate génère (et, si -send, dépose) un Factur-X à partir d'un HTML + JSON.
 func runGenerate(argv []string) {
 	fs := flag.NewFlagSet("gofact", flag.ExitOnError)
@@ -71,8 +106,12 @@ func runGenerate(argv []string) {
 	_ = fs.Parse(argv)
 
 	if *htmlPath == "" {
-		fmt.Fprintln(os.Stderr, "erreur : -html est requis")
-		fs.Usage()
+		if !strings.HasPrefix(argv[0], "-") {
+			fmt.Fprintf(os.Stderr, "erreur : %q n'est pas une commande gofact.\n\n", argv[0])
+		} else {
+			fmt.Fprint(os.Stderr, "erreur : -html est requis en mode direct.\n\n")
+		}
+		usage(os.Stderr)
 		os.Exit(2)
 	}
 
