@@ -67,11 +67,16 @@ Puis identifier laquelle des quatre routines ci-dessous s'applique.
 
 ## Routine 3 — Bilan hebdomadaire (vendredi)
 
-1. Relever les indicateurs : étoiles et forks GitHub, issues ouvertes par des
-   tiers, trafic de la documentation si disponible, impressions et commentaires
-   LinkedIn.
+1. Relever les indicateurs, en commençant par la métrique nord : **somme des
+   `download_count` des assets de la dernière release**, via
+   `mcp__github__get_latest_release` (l'API GitHub publique est bloquée par le
+   proxy, l'outil MCP ne l'est pas). Puis issues ouvertes par des tiers,
+   étoiles, forks, trafic de la documentation si disponible, impressions et
+   commentaires LinkedIn — dans cet ordre d'importance décroissante.
 2. Consigner la ligne de la semaine dans `comms/METRICS.md`.
-3. Comparer aux cibles de `STRATEGY.md` § 7.
+3. Comparer aux cibles de `STRATEGY.md` § 7 et au diagnostic de
+   `DISTRIBUTION.md`. Une semaine où les téléchargements ne bougent pas est une
+   semaine sans résultat, quel que soit le nombre d'impressions obtenues.
 4. **Décider, et écrire la décision.** Un sujet qui ne produit rien deux
    semaines de suite sort du calendrier. Un sujet qui produit des conversations
    qualifiées est décliné. Modifier `CALENDAR.md` en conséquence.
