@@ -59,7 +59,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write # authentification OIDC auprès du registre MCP
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -105,13 +106,14 @@ jobs:
       # Registre officiel MCP. gofact n'étant dans aucun registre de paquets, la
       # seule voie est le type `mcpb` : un bundle par plateforme, hébergé sur la
       # release GitHub — hébergeur autorisé par le registre.
-      - name: Bundles .mcpb et server.json
-        id: mcpb
+      - name: Bundles .mcpb
+        id: tag
         env:
           TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           scripts/mcpb.sh dist "${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Joindre les bundles à la release
         env:
@@ -119,12 +121,12 @@ jobs:
           TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
         run: gh release upload "$TAG" dist/mcpb/*.mcpb --clobber
 
-      # OIDC : le namespace io.github.kolapsis/* est prouvé par le dépôt lui-même,
-      # aucun secret à stocker.
-      - name: Publier au registre MCP
-        run: |
-          set -euo pipefail
-          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
-            | tar xz mcp-publisher
-          ./mcp-publisher login github-oidc
-          ./mcp-publisher publish
+  # Publication au registre MCP : un workflow à part, rejouable seul si elle rate.
+  registry:
+    needs: release
+    uses: ./.github/workflows/mcp-registry.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    permissions:
+      contents: read
+      id-token: write
