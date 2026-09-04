@@ -17,7 +17,45 @@ permissions:
   contents: write
 
 jobs:
+  # Une release ne part jamais d'un commit rouge. Un tag ne déclenche pas
+  # `workflow_run`, et `ci.yml` ne tourne pas sur les tags : on ne peut donc pas
+  # dépendre du workflow, seulement interroger son résultat sur le commit à
+  # publier — celui que goreleaser va construire.
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: CI verte sur le commit à publier
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          runs=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&per_page=100" \
+                   --jq '[.workflow_runs[] | {status, conclusion}]')
+          total=$(jq 'length' <<<"$runs")
+          ok=$(jq '[.[] | select(.conclusion == "success")] | length' <<<"$runs")
+          pending=$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")
+
+          if [ "$ok" -gt 0 ]; then
+            echo "CI verte sur $SHA"
+            exit 0
+          fi
+          if [ "$total" -eq 0 ]; then
+            echo "::error::aucun run de ci.yml sur $SHA — pousser le commit sur une branche" \
+                 "couverte par la CI et attendre qu'elle passe avant de publier"
+          elif [ "$pending" -gt 0 ]; then
+            echo "::error::la CI tourne encore sur $SHA — relancer cette release quand elle est verte"
+          else
+            echo "::error::la CI a échoué sur $SHA — corriger avant de publier"
+          fi
+          exit 1
+
   release:
+    needs: gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
