@@ -25,12 +25,14 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 
 	"github.com/kolapsis/gofact/internal/dotenv"
 	"github.com/kolapsis/gofact/internal/facturx"
 	"github.com/kolapsis/gofact/internal/pdp"
 	_ "github.com/kolapsis/gofact/internal/pdp/superpdp"
+	"github.com/kolapsis/gofact/internal/workspace"
 )
 
 func main() {
@@ -80,6 +82,7 @@ Commandes :
 
 Mode direct, sans IA :
   gofact -html <facture.html>  génère le Factur-X à partir du HTML et de son JSON
+                               (ne consomme aucun numéro, n'inscrit rien au registre)
                                (`+"`gofact -html x.html -h`"+` pour les options)
 
 Pour commencer : `+"`gofact install`"+`, puis demandez une facture à votre IA.
@@ -113,6 +116,10 @@ func runGenerate(argv []string) {
 		}
 		usage(os.Stderr)
 		os.Exit(2)
+	}
+
+	if err := guardRegistry(*htmlPath); err != nil {
+		fail(err)
 	}
 
 	if err := dotenv.LoadDefault(*envPath); err != nil {
@@ -167,6 +174,39 @@ func runGenerate(argv []string) {
 }
 
 // runSend dépose un PDF Factur-X existant sur SuperPDP.
+// guardRegistry empêche le mode direct d'émettre une facture fantôme.
+//
+// `-html` est un convertisseur : il rend le HTML qu'on lui donne, sans attribuer
+// de numéro ni rien inscrire au registre. Hors d'un dossier d'organisation c'est
+// exactement ce qu'on veut. Dedans, c'est un piège : deux appels de suite
+// produisent deux factures portant le même numéro, et le registre — qui se
+// présente comme la source de vérité d'une séquence continue, sans trou, jamais
+// réutilisée — les ignore toutes les deux. On refuse donc, sauf s'il s'agit du
+// re-rendu d'une facture déjà inscrite : là, le numéro existe déjà.
+func guardRegistry(htmlPath string) error {
+	o, err := workspace.Open(filepath.Dir(htmlPath))
+	if err != nil {
+		return nil // pas un dossier d'organisation : rien à garantir
+	}
+	invoices, err := o.Invoices()
+	if err != nil {
+		return err
+	}
+	base := filepath.Base(htmlPath)
+	for _, inv := range invoices {
+		if f, _ := inv["fichier"].(string); f == base {
+			return nil // re-rendu d'une facture déjà émise
+		}
+	}
+	return fmt.Errorf("%s est un dossier d'organisation, et %s n'est inscrit à aucune facture de %s.\n\n"+
+		"Le mode direct rend le HTML tel quel : il n'attribue pas de numéro et n'inscrit rien au "+
+		"registre. L'utiliser ici produirait une facture que le registre ignore — et le prochain "+
+		"appel réutiliserait le même numéro.\n\n"+
+		"Pour émettre une facture, passez par votre IA (outil create_invoice), qui attribue le "+
+		"numéro et inscrit la facture en une transaction.",
+		o.Path, base, workspace.RegistryFile)
+}
+
 func runSend(argv []string) {
 	fs := flag.NewFlagSet("gofact send", flag.ExitOnError)
 	pdfPath := fs.String("pdf", "", "PDF Factur-X à déposer (requis)")
