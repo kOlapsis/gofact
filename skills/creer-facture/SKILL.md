@@ -1,6 +1,6 @@
 ---
 name: creer-facture
-version: 3.0.0
+version: 1.0.0
 description: Crée une facture électronique française conforme (Factur-X PDF/A-3 + XML CII EN 16931) en s'appuyant sur les outils MCP gofact — numérotation légale, registre, modèle figé, envoi PDP. Gère factures standard, acomptes et soldes.
 triggers:
   - créer une facture

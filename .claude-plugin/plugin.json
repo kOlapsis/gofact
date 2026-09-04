@@ -1,13 +1,13 @@
 {
   "name": "gofact",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "description": "Génère des factures Factur-X conformes (PDF/A-3 + XML CII EN 16931) : binaire Go + skill creer-facture.",
   "author": {
     "name": "Benjamin Touchard",
-    "url": "https://github.com/kolapsis"
+    "url": "https://github.com/kOlapsis"
   },
-  "homepage": "https://github.com/kolapsis/gofact",
-  "repository": "https://github.com/kolapsis/gofact",
+  "homepage": "https://kolapsis.github.io/gofact/",
+  "repository": "https://github.com/kOlapsis/gofact",
   "license": "AGPL-3.0-or-later",
   "keywords": [
     "factur-x",
