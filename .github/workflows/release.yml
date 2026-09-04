@@ -3,6 +3,15 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Déclenchement manuel : publier ne doit pas exiger un poste capable de
+  # pousser un tag. Le tag est posé par le job lui-même, sur le commit courant
+  # de la branche choisie.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version à publier, préfixée par v (ex. v1.0.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -14,9 +23,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # goreleaser exige que le commit construit porte un tag. En déclenchement
+      # manuel il n'existe pas encore : on le crée ici, après avoir vérifié sa
+      # forme et son unicité — un tag de version ne se réécrit pas.
+      #
+      # Le push utilise le GITHUB_TOKEN par défaut, dont les événements ne
+      # déclenchent aucun workflow : le `push: tags` ci-dessus ne se rallumera
+      # donc pas, et la release ne peut pas partir deux fois.
+      - name: Poser le tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in
+            v[0-9]*) ;;
+            *) echo "::error::le tag doit commencer par v suivi d'un chiffre (reçu : $TAG)"; exit 1 ;;
+          esac
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::le tag $TAG existe déjà"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "gofact ${TAG#v}"
+          git push origin "refs/tags/$TAG"
+          echo "tag $TAG posé sur $(git rev-parse --short HEAD)"
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
