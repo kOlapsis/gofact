@@ -54,7 +54,7 @@ X et newsletter : recyclage automatique du meilleur contenu de la semaine.
 | Créneau | Sujet | Pilier |
 | --- | --- | --- |
 | mar. 22/09 | L'embarquement verbatim : pourquoi re-sérialiser le XML fait perdre vos adresses de routage | B |
-| mer. 23/09 | PDF/A-3 sans Java, sans Ghostscript, sans téléchargement au premier lancement | B |
+| mer. 23/09 | Une bibliothèque n'est pas un produit : ce qui sépare « ça compile » de « ça facture » | B |
 | jeu. 24/09 | Refuser d'émettre une facture non conforme est une fonctionnalité, pas une limitation | B |
 | **Article** | *Anatomie d'un Factur-X : ce qu'il y a vraiment dans le fichier* | B |
 

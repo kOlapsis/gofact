@@ -23,6 +23,7 @@ Trois faits de marché structurent le positionnement :
 
 | Fait | Conséquence pour gofact |
 | --- | --- |
+| Un concurrent propriétaire (`scribo`) fait déjà de l'e-facturation « AI-native » avec MCP, en production en Allemagne et aux États-Unis, et annonce la France | Le pilier C n'est pas un territoire vierge. Il reste défendable sur ce que ce concurrent ne peut pas offrir — pas de compte, pas de SaaS, exécution locale — mais la fenêtre se referme, ce qui plaide pour accélérer les canaux MCP plutôt que les canaux lents. |
 | 166 plateformes agréées (PA, ex-PDP), 4 seulement proposent une offre gratuite | Le marché se lit comme « choisir un abonnement ». gofact n'est pas dans cette liste et ne doit pas y prétendre. |
 | Aucune solution open source parmi les PA agréées | Personne n'occupe le créneau « le format est libre, la plateforme est un tuyau ». C'est le nôtre. |
 | La plupart des « générateurs de factures gratuits » produisent un PDF non structuré | Il existe une confusion massive à dissiper. Dissiper une confusion, c'est le meilleur contenu qui soit. |
@@ -82,6 +83,21 @@ L'argument technique le plus fort du produit : **l'embarquement verbatim**. Un
 assembleur qui re-sérialise le XML via son propre modèle perd les champs
 étendus — notamment les adresses de routage PA (BT-34 / BT-49). gofact ne
 retouche jamais le XML qu'il a produit.
+
+!!! danger "Ce qui n'est **pas** un différenciateur"
+
+    « PDF/A-3 en Go pur, sans Java ni Ghostscript » est une bonne décision
+    technique, mais **pas** un avantage concurrentiel : `angelodlfrtr/go-invoice-generator`
+    (146 étoiles, Apache-2.0) assemble déjà du Factur-X PDF/A-3B en Go pur,
+    sur cinq profils, validé par mustang-cli et veraPDF — et est arrivé avant.
+    Le revendiquer comme une singularité expose à une correction publique
+    humiliante, et à juste titre.
+
+    Ce qui distingue réellement gofact de ce projet : c'est un **produit**, pas
+    une bibliothèque. Un indépendant ne va pas écrire du Go pour facturer. La
+    fidélité du rendu HTML, le refus documenté avant production, la numérotation
+    légale transactionnelle et l'interface conversationnelle sont les
+    différences défendables. Les autres se taisent.
 
 *Public visé :* développeurs, éditeurs, experts-comptables techniques.
 
