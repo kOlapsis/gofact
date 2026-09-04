@@ -150,3 +150,5 @@ réglementaire publiée, un canal qui se retourne.
 | 2026-09-04 | Métrique nord : téléchargements de release, pas étoiles | L'absence de télémétrie est un choix produit ; les téléchargements sont la seule mesure d'usage honnête disponible |
 | 2026-09-04 | Aucune poussée de trafic avant vérification du parcours d'installation | Envoyer du monde sur une installation cassée brûle l'audience une seule fois |
 | 2026-09-04 | Notes de version transformées en page d'atterrissage | La page de release est le premier écran de tout arrivant par un annuaire ; elle affichait une liste de hachés git |
+| 2026-09-04 | Correction des blocages d'embarquement avant toute poussée de trafic | Audit exécuté : `.env` jamais lu en mode MCP (donc `GOFACT_CHROME`, seul recours annoncé, sans effet), binaire hors du `PATH` après installation, `go test ./...` rouge sans navigateur, aucune commande listée au premier lancement |
+| 2026-09-04 | Audit des canaux corrigé : la release `v0.1.0` existe bel et bien | L'agent d'analyse a conclu à son absence à partir d'une réponse 403 du proxy réseau ; sa recommandation prioritaire tombait donc à faux |
