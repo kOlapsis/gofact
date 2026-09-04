@@ -57,6 +57,9 @@ jobs:
   release:
     needs: gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write # authentification OIDC auprès du registre MCP
     steps:
       - uses: actions/checkout@v4
         with:
@@ -98,3 +101,30 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Registre officiel MCP. gofact n'étant dans aucun registre de paquets, la
+      # seule voie est le type `mcpb` : un bundle par plateforme, hébergé sur la
+      # release GitHub — hébergeur autorisé par le registre.
+      - name: Bundles .mcpb et server.json
+        id: mcpb
+        env:
+          TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          scripts/mcpb.sh dist "${TAG#v}"
+
+      - name: Joindre les bundles à la release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+        run: gh release upload "$TAG" dist/mcpb/*.mcpb --clobber
+
+      # OIDC : le namespace io.github.kolapsis/* est prouvé par le dépôt lui-même,
+      # aucun secret à stocker.
+      - name: Publier au registre MCP
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
