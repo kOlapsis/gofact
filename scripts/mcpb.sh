@@ -1,6 +1,5 @@
 #!/usr/bin/env sh
-# Fabrique les bundles MCP (.mcpb) à partir des binaires produits par GoReleaser,
-# puis renseigne server.json des paquets correspondants.
+# Fabrique les bundles MCP (.mcpb) à partir des binaires produits par GoReleaser.
 #
 # Un .mcpb est une archive zip contenant un manifest.json et le serveur. C'est le
 # seul chemin de publication au registre officiel MCP pour un projet qui n'est
@@ -14,7 +13,6 @@ set -eu
 DIST=${1:?dist manquant}
 VERSION=${2:?version manquante}
 OUT="$DIST/mcpb"
-REPO=kOlapsis/gofact
 DESCRIPTION="Creates compliant French e-invoices locally: Factur-X PDF/A-3 with EN 16931 CII XML, legal numbering"
 
 command -v jq >/dev/null || { echo "jq requis" >&2; exit 1; }
@@ -23,8 +21,7 @@ command -v zip >/dev/null || { echo "zip requis" >&2; exit 1; }
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-packages=$(mktemp)
-echo '[]' > "$packages"
+built=0
 
 # La liste passe par un fichier : un `read` alimenté par un tuyau tourne dans un
 # sous-shell, où un `exit` ne ferait pas échouer le script.
@@ -72,21 +69,9 @@ while IFS="$(printf '\t')" read -r path goos goarch; do
 	(cd "$work" && zip -qr "../$name" .)
 	rm -rf "$work"
 
-	sha=$(sha256sum "$OUT/$name" | cut -d' ' -f1)
-	url="https://github.com/$REPO/releases/download/v$VERSION/$name"
-	jq --arg id "$url" --arg v "$VERSION" --arg sha "$sha" \
-	   '. + [{ registryType: "mcpb", identifier: $id, version: $v, fileSha256: $sha,
-	           transport: { type: "stdio" } }]' "$packages" > "$packages.new"
-	mv "$packages.new" "$packages"
-	echo "$name  $sha"
+	echo "$name  $(sha256sum "$OUT/$name" | cut -d' ' -f1)"
+	built=$((built + 1))
 done < "$binaries"
 rm -f "$binaries"
 
-[ "$(jq 'length' "$packages")" -gt 0 ] || { echo "aucun binaire dans $DIST/artifacts.json" >&2; exit 1; }
-
-jq --arg v "$VERSION" --slurpfile pkgs "$packages" \
-   '.version = $v | .packages = $pkgs[0]' server.json > server.json.new
-mv server.json.new server.json
-rm -f "$packages"
-
-echo "server.json : version $VERSION, $(jq '.packages | length' server.json) paquets"
+[ "$built" -gt 0 ] || { echo "aucun binaire dans $DIST/artifacts.json" >&2; exit 1; }
