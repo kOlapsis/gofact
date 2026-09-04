@@ -33,6 +33,8 @@ nav:
       - Parler à son IA (MCP): guide/mcp.md
       - Ligne de commande: guide/cli.md
       - Le dossier d'organisation: guide/organisation.md
+  - Comprendre la réforme:
+      - Ce qui s'applique à un indépendant: comprendre/reforme-independant.md
   - Conformité: conformite.md
   - Envoi PDP: pdp.md
   - FAQ & dépannage: faq.md
