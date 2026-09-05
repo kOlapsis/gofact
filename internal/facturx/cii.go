@@ -260,8 +260,9 @@ func buildParty(p Party) ciiParty {
 	if p.SIREN != "" {
 		party.LegalOrg = &ciiLegalOrg{ID: ciiSchemeID{SchemeID: "0002", Value: p.SIREN}}
 	}
-	// BT-34/BT-49 adresse électronique : adresse de routage (PDP) prioritaire,
-	// sinon l'e-mail (scheme EM).
+	// BT-34/BT-49 adresse électronique : l'adresse résolue par ResolveRouting
+	// (explicite, sinon SIREN en 0225), avec l'e-mail (scheme EM) en dernier
+	// repli — une partie sans identifiant légal ni adresse déclarée.
 	if p.EAddr != "" {
 		scheme := p.EAddrScheme
 		if scheme == "" {

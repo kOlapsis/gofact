@@ -186,12 +186,21 @@ only carries what varies.
 Optional fields: `due_date` (defaults to "on receipt" = issue date),
 `delivery_date` (defaults to issue date), `currency` (defaults to EUR), `vat`
 (defaults to 293 B exemption; set `{"exempt": false, "rate_pct": "20.00"}` for
-standard VAT), `seller`, `iban`, `notes`.
+standard VAT), `seller`, `iban`, `title` (the invoice subject, recorded in the
+registry), `notes`.
+
+**Notes**: the three French legal mentions — late-payment penalties (`PMD`),
+recovery fee (`PMT`), discount (`AAB`) — are always emitted (BR-FR-05). `notes`
+**adds** to them: a note without `subject_code` goes out as general information
+(`AAI`); a note carrying `PMD`, `PMT` or `AAB` replaces the default mention with
+that code. No spec can drop them: generation refuses.
 
 **PDP routing**: `seller`/`buyer` accept `electronic_address` (BT-34/BT-49) and
-`electronic_address_scheme` (e.g. `"0225"`). Required for PDP submission, which
-routes on these addresses rather than on the postal address. Example (seller
-override):
+`electronic_address_scheme` (e.g. `"0225"`). A PDP routes on these addresses,
+not on the postal address. Without a declared address, each party is routed on
+its **SIREN** (derived from the SIRET) with scheme `0225`; the e-mail (`EM`) is
+only used when no legal identifier is known — it is not in the directory, and
+`send_invoice` then refuses the deposit. Example (seller override):
 
 ```json
 "seller": {

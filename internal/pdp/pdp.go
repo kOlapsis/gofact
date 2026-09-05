@@ -13,9 +13,51 @@ import (
 
 // Event est un statut du cycle de vie d'une facture déposée.
 type Event struct {
-	CreatedAt  string `json:"created_at"`
-	StatusCode string `json:"status_code"`
-	StatusText string `json:"status_text"`
+	CreatedAt  string   `json:"created_at"`
+	StatusCode string   `json:"status_code"`
+	StatusText string   `json:"status_text"`
+	Reasons    []string `json:"reasons,omitempty"` // motifs détaillés d'un rejet, un par ligne
+}
+
+// IsRejection dit si un statut marque le rejet de la facture — par la
+// plateforme (fr:213 « Rejetée »), par le concentrateur (ppf:rejected) ou par
+// le destinataire (fr:210 « Refusée »). Un code ou un libellé suffit : les
+// fournisseurs ne partagent que le vocabulaire du cycle de vie FR.
+func IsRejection(e Event) bool {
+	code := strings.ToLower(strings.TrimSpace(e.StatusCode))
+	switch {
+	case code == "fr:213", code == "fr:210",
+		strings.HasSuffix(code, ":rejected"), strings.HasSuffix(code, ":refused"):
+		return true
+	}
+	text := strings.ToLower(e.StatusText)
+	return strings.Contains(text, "rejet") || strings.Contains(text, "reject") || strings.Contains(text, "refus")
+}
+
+// Rejection résume un cycle de vie : la facture a-t-elle été rejetée, et pour
+// quels motifs — ceux portés par les événements de rejet, dédoublonnés, dans
+// l'ordre d'apparition. Un rejet sans motif détaillé renvoie le libellé du statut.
+func Rejection(events []Event) (rejected bool, reasons []string) {
+	seen := map[string]bool{}
+	for _, e := range events {
+		if !IsRejection(e) {
+			continue
+		}
+		rejected = true
+		lines := e.Reasons
+		if len(lines) == 0 {
+			lines = []string{strings.TrimSpace(e.StatusCode + " " + e.StatusText)}
+		}
+		for _, r := range lines {
+			r = strings.TrimSpace(r)
+			if r == "" || seen[r] {
+				continue
+			}
+			seen[r] = true
+			reasons = append(reasons, r)
+		}
+	}
+	return rejected, reasons
 }
 
 // Receipt est l'accusé d'un dépôt.
