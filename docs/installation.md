@@ -41,6 +41,18 @@ est automatisée par `gofact install`.
 
     Bucket personnel, pour la même raison. `scoop update gofact` suit les releases.
 
+=== "Paquet Debian / RPM / Alpine"
+
+    Chaque release publie un `.deb`, un `.rpm` et un `.apk` pour amd64 et arm64.
+
+    ```sh
+    # Debian, Ubuntu
+    curl -fsSLO https://github.com/kOlapsis/gofact/releases/latest/download/gofact_1.1.0_linux_amd64.deb
+    sudo dpkg -i gofact_1.1.0_linux_amd64.deb
+    ```
+
+    L'intérêt sur le script : une désinstallation propre (`apt remove gofact`).
+
 === "Depuis les sources"
 
     ```sh

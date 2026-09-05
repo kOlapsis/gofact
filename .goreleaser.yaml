@@ -19,6 +19,59 @@ archives:
         formats: [zip]
     files: [LICENSE, README.md, .env.example]
 
+# Paquets natifs Linux. Debian et Fedora demandent un parrainage et un travail
+# de packaging hors de proportion ; un .deb et un .rpm joints à la release
+# couvrent le besoin réel, et l'utilisateur garde une désinstallation propre.
+nfpms:
+  - package_name: gofact
+    vendor: kOlapsis
+    homepage: "https://kolapsis.github.io/gofact/"
+    maintainer: Benjamin Touchard <benjamin@kolapsis.com>
+    description: |-
+      Compliant French e-invoicing, locally.
+      Turns an HTML invoice into a Factur-X file: a PDF/A-3 carrying the
+      EN 16931 CII XML embedded byte for byte, checked against the EN 16931
+      rules before it is written. Legal invoice numbering is held by the
+      program, never by a language model.
+    license: AGPL-3.0-or-later
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    # Le rendu passe par un navigateur Chrome ; c'est une recommandation et non
+    # une dépendance, l'utilisateur pouvant déjà en avoir un hors dépôts.
+    recommends:
+      - chromium
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/gofact/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/gofact/README.md
+      - src: .env.example
+        dst: /usr/share/doc/gofact/env.example
+
+# AUR. Aucun critère de notoriété, et le public Arch recoupe fortement celui de
+# gofact. Publier exige une clé SSH déclarée sur un compte AUR : sans elle, le
+# PKGBUILD est produit sans être poussé et la release aboutit quand même.
+aurs:
+  - name: gofact-bin
+    homepage: "https://kolapsis.github.io/gofact/"
+    description: "Compliant French e-invoicing: HTML to Factur-X (PDF/A-3 + EN 16931 CII XML), locally"
+    maintainers:
+      - "Benjamin Touchard <benjamin@kolapsis.com>"
+    license: AGPL-3.0-or-later
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/gofact-bin.git"
+    skip_upload: '{{ if .Env.AUR_KEY }}false{{ else }}true{{ end }}'
+    provides:
+      - gofact
+    conflicts:
+      - gofact
+    optdepends:
+      - "chromium: rendu PDF (tout navigateur Chrome convient)"
+    package: |-
+      install -Dm755 "./gofact" "${pkgdir}/usr/bin/gofact"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/gofact-bin/LICENSE"
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/gofact-bin/README.md"
+
 checksum:
   name_template: checksums.txt
 
