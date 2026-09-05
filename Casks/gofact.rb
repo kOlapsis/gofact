@@ -1,24 +1,24 @@
-# Généré par scripts/packaging.sh depuis la release v1.1.0 — ne pas modifier à la main.
+# Généré par scripts/packaging.sh depuis la release v1.2.0 — ne pas modifier à la main.
 cask "gofact" do
-  version "1.1.0"
+  version "1.2.0"
 
   on_macos do
     on_arm do
-      sha256 "1a55fe986321b413730b6938c6900692b1a80d7222c64d6bd796e2c66f341516"
+      sha256 "7e09431c2f69b08a9b5970ecb43450f03428b13323e6d0e7c3fedc59854badf8"
       url "https://github.com/kOlapsis/gofact/releases/download/v#{version}/gofact_#{version}_darwin_arm64.tar.gz"
     end
     on_intel do
-      sha256 "85973a9bcfdfc60b9a3ca709f737e1c206b1570dae9f9e037c3980d758810f12"
+      sha256 "b02aff66fafba0b270a0f2a447dd783364ae4697e56ceeed1ac4ba6b3ff8bef8"
       url "https://github.com/kOlapsis/gofact/releases/download/v#{version}/gofact_#{version}_darwin_amd64.tar.gz"
     end
   end
   on_linux do
     on_arm do
-      sha256 "8c15b1371a17583ca7ee0ab9c30afcf82872711a10bc3fa85222bee77678a605"
+      sha256 "5419eeaded45bfdec9ecab4e2605552acf5f35ca4bdb1d44a80b429d9127e3e5"
       url "https://github.com/kOlapsis/gofact/releases/download/v#{version}/gofact_#{version}_linux_arm64.tar.gz"
     end
     on_intel do
-      sha256 "f8404e6c1b777e1fcccd947acf2aea44cf81756b9566c312a691d60e1d00a087"
+      sha256 "4bb548331a7e597cf7e80ed67c6a5299f59be912f01a05e93e5c78726dc527f5"
       url "https://github.com/kOlapsis/gofact/releases/download/v#{version}/gofact_#{version}_linux_amd64.tar.gz"
     end
   end
