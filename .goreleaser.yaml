@@ -19,6 +19,59 @@ archives:
         formats: [zip]
     files: [LICENSE, README.md, .env.example]
 
+# Distribution par gestionnaire de paquets. Les deux dépôts sont des dépôts
+# personnels : ni Homebrew core ni le bucket Scoop principal n'accepte un projet
+# sous leur seuil de notoriété, et les attendre reviendrait à laisser les
+# utilisateurs macOS et Windows installer à la main.
+#
+# Le jeton n'est pas GITHUB_TOKEN : celui de la release n'écrit que dans ce
+# dépôt. Sans jeton dédié, la formule et le manifeste sont produits mais pas
+# poussés — la release aboutit quand même.
+homebrew_casks:
+  - name: gofact
+    binaries: [gofact]
+    repository:
+      owner: kOlapsis
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: "https://kolapsis.github.io/gofact/"
+    description: "Compliant French e-invoicing: HTML to Factur-X (PDF/A-3 + EN 16931 CII XML), locally"
+    commit_author:
+      name: github-actions[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "gofact {{ .Tag }}"
+    skip_upload: '{{ if .Env.TAP_GITHUB_TOKEN }}false{{ else }}true{{ end }}'
+    caveats: |
+      gofact a besoin d'un navigateur Chrome pour le rendu PDF. S'il n'est pas
+      détecté, indiquez son chemin dans GOFACT_CHROME.
+
+      Pour déclarer le serveur MCP à votre client IA : gofact install
+    # Le binaire n'est pas signé ni notarisé : sans cela, macOS le met en
+    # quarantaine et affiche « l'application est endommagée ».
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/gofact"]
+          end
+
+scoops:
+  - name: gofact
+    repository:
+      owner: kOlapsis
+      name: scoop-bucket
+      branch: main
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: "https://kolapsis.github.io/gofact/"
+    description: "Compliant French e-invoicing: HTML to Factur-X (PDF/A-3 + EN 16931 CII XML), locally"
+    license: AGPL-3.0-or-later
+    commit_author:
+      name: github-actions[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "gofact {{ .Tag }}"
+    skip_upload: '{{ if .Env.TAP_GITHUB_TOKEN }}false{{ else }}true{{ end }}'
+
 checksum:
   name_template: checksums.txt
 

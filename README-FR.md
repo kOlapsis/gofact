@@ -212,8 +212,20 @@ gofact install -yes    # enregistre le serveur MCP dans les clients détectés
 qu'il compte écrire (dry-run par défaut), sauvegarde chaque fichier avant modification
 et n'écrase jamais une entrée divergente sans `-force`. Windows : `install.ps1`.
 
+**Gestionnaires de paquets** (tap et bucket personnels — Homebrew core comme le bucket
+Scoop principal imposent un seuil de notoriété que gofact n'atteint pas encore) :
+
+```sh
+brew install kOlapsis/tap/gofact
+```
+
+```powershell
+scoop bucket add kolapsis https://github.com/kOlapsis/scoop-bucket
+scoop install gofact
+```
+
 **Plugin Claude Code** — le dépôt est aussi un plugin : skill `creer-facture` + serveur
-MCP déclaré (compilé au 1ᵉʳ usage, toolchain Go requise pour ce build initial) :
+MCP déclaré :
 
 ```
 /plugin marketplace add kolapsis/gofact

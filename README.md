@@ -214,9 +214,20 @@ shows what it intends to write (dry-run by default), backs up every file before
 modifying it and never overwrites a diverging entry without `-force`. Windows:
 `install.ps1`.
 
+**Package managers** (personal tap and bucket — Homebrew core and the main
+Scoop bucket both require a popularity threshold gofact has not reached):
+
+```sh
+brew install kOlapsis/tap/gofact
+```
+
+```powershell
+scoop bucket add kolapsis https://github.com/kOlapsis/scoop-bucket
+scoop install gofact
+```
+
 **Claude Code plugin** — the repository is also a plugin: `creer-facture` skill
-+ declared MCP server (compiled on first use, Go toolchain required for that
-initial build):
++ declared MCP server:
 
 ```
 /plugin marketplace add kolapsis/gofact
