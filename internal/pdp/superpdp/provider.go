@@ -64,7 +64,8 @@ func (p *provider) Status(ctx context.Context, reference string) ([]pdp.Event, e
 func convertEvents(events []Event) []pdp.Event {
 	out := make([]pdp.Event, 0, len(events))
 	for _, e := range events {
-		out = append(out, pdp.Event{CreatedAt: e.CreatedAt, StatusCode: e.StatusCode, StatusText: e.StatusText})
+		out = append(out, pdp.Event{CreatedAt: e.CreatedAt, StatusCode: e.StatusCode,
+			StatusText: e.StatusText, Reasons: e.Reasons()})
 	}
 	return out
 }

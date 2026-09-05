@@ -28,10 +28,23 @@ irréversible de l'outil, et elle est traitée comme telle.
       rejeté, réessayer en `0002` ;
     - introuvable → **ne pas tenter l'envoi** : livrez le PDF par un autre canal.
 
+    Sans adresse déclarée, gofact route l'acheteur sur son SIREN en `0225` et inscrit
+    cette adresse dans le sidecar JSON à la création. Un acheteur dont la seule
+    adresse est un e-mail n'est pas déposé : `send_invoice` refuse et renvoie vers
+    `find_routing_address`, plutôt que de laisser la plateforme rejeter.
+
 !!! note "L'émetteur aussi doit être adressable"
     La PDP exige que le vendeur de la facture corresponde à la société du compte
     authentifié (identifiant légal BT-30) et porte sa propre adresse de routage. Par
     défaut gofact route l'émetteur sur son SIREN en scheme `0225`.
+
+## Rejet
+
+Un rejet arrive en général dans la seconde. `send_invoice` relit le cycle de vie
+juste après le dépôt et remonte immédiatement un rejet (`fr:213`) avec ses motifs,
+règle par règle — par exemple `BR-FR-05/BT-22 : La mention relative aux frais de
+recouvrement (code PMT) est absente`. `get_invoice_status` expose les mêmes motifs,
+et le journal du dossier trace l'événement `pdp_rejected`.
 
 ## Déposer
 

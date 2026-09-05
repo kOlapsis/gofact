@@ -40,11 +40,79 @@ func New(cfg Config) *Client {
 	return &Client{cfg: cfg, http: &http.Client{Timeout: 90 * time.Second}}
 }
 
-// Event est un statut du cycle de vie d'une facture.
+// Event est un statut du cycle de vie d'une facture. Sur un rejet (fr:213),
+// l'API porte le motif dans data.reason et le détail règle par règle dans
+// details[].notes[].contents[].content — c'est là que se lit « BR-FR-05/BT-22 :
+// la mention PMT est absente », pas dans status_text. Les deux champs sont
+// gardés bruts : leur forme varie selon l'événement, et un événement illisible
+// ne doit pas faire échouer la lecture du cycle de vie entier.
 type Event struct {
-	CreatedAt  string `json:"created_at"`
-	StatusCode string `json:"status_code"`
-	StatusText string `json:"status_text"`
+	CreatedAt  string          `json:"created_at"`
+	StatusCode string          `json:"status_code"`
+	StatusText string          `json:"status_text"`
+	Data       json.RawMessage `json:"data,omitempty"`
+	Details    json.RawMessage `json:"details,omitempty"`
+}
+
+// eventData est la partie exploitée de data.
+type eventData struct {
+	Reason string `json:"reason"`
+}
+
+// eventDetail est un détail de rejet : un motif codé et ses notes explicatives.
+type eventDetail struct {
+	Reason string `json:"reason"`
+	Notes  []struct {
+		ContentCode string `json:"content_code"`
+		Subject     string `json:"subject"`
+		Contents    []struct {
+			Content string `json:"content"`
+		} `json:"contents"`
+	} `json:"notes"`
+}
+
+// Reasons aplatit les motifs portés par l'événement, un par ligne, dans l'ordre
+// : le motif général (data.reason), puis chaque contenu de note des détails —
+// ou leur code (content_code, sinon reason) quand une note n'a pas de texte.
+// Vide pour un événement ordinaire.
+func (e Event) Reasons() []string {
+	var out []string
+	seen := map[string]bool{}
+	push := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	var data eventData
+	if len(e.Data) > 0 && json.Unmarshal(e.Data, &data) == nil {
+		push(data.Reason)
+	}
+	var details []eventDetail
+	if len(e.Details) > 0 && json.Unmarshal(e.Details, &details) == nil {
+		for _, d := range details {
+			pushed := false
+			for _, n := range d.Notes {
+				withText := false
+				for _, c := range n.Contents {
+					if strings.TrimSpace(c.Content) != "" {
+						push(c.Content)
+						withText, pushed = true, true
+					}
+				}
+				if !withText && n.ContentCode != "" {
+					push(n.ContentCode)
+					pushed = true
+				}
+			}
+			if !pushed {
+				push(d.Reason)
+			}
+		}
+	}
+	return out
 }
 
 // Invoice est la facture telle que renvoyée par l'API.
