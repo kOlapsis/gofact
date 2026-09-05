@@ -212,15 +212,18 @@ gofact install -yes    # enregistre le serveur MCP dans les clients détectés
 qu'il compte écrire (dry-run par défaut), sauvegarde chaque fichier avant modification
 et n'écrase jamais une entrée divergente sans `-force`. Windows : `install.ps1`.
 
-**Gestionnaires de paquets** (tap et bucket personnels — Homebrew core comme le bucket
-Scoop principal imposent un seuil de notoriété que gofact n'atteint pas encore) :
+**Gestionnaires de paquets** — la cask et le manifeste vivent dans ce dépôt, d'où les
+URL explicites (la forme courte de `brew tap` exige un dépôt nommé `homebrew-*` ;
+Homebrew core comme le bucket Scoop principal imposent par ailleurs un seuil de
+notoriété que gofact n'atteint pas encore) :
 
 ```sh
-brew install kOlapsis/tap/gofact
+brew tap kOlapsis/gofact https://github.com/kOlapsis/gofact
+brew install kOlapsis/gofact/gofact
 ```
 
 ```powershell
-scoop bucket add kolapsis https://github.com/kOlapsis/scoop-bucket
+scoop bucket add gofact https://github.com/kOlapsis/gofact
 scoop install gofact
 ```
 
