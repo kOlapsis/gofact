@@ -113,3 +113,29 @@ func TestValidateExemptSellerNeedsTaxID(t *testing.T) {
 		t.Errorf("BR-E-02 attendue pour un vendeur exonéré sans identifiant fiscal, obtenu %v", ids)
 	}
 }
+
+// Les trois mentions légales françaises doivent figurer une fois chacune : une
+// facture qui en perd une ou en double une est refusée avant génération.
+func TestValidateRequiresFrenchLegalMentions(t *testing.T) {
+	inv := validInvoice(t)
+	inv.Notes = []Note{{SubjectCode: "PMD", Content: "x"}, {SubjectCode: "AAB", Content: "z"}, {SubjectCode: "AAI", Content: "contexte"}}
+	ids := violations(t, inv)
+	if !hasRule(ids, "BR-FR-05") {
+		t.Errorf("BR-FR-05 attendue sans mention PMT, obtenu %v", ids)
+	}
+	if err := inv.Validate(); !strings.Contains(err.Error(), "PMT") || !strings.Contains(err.Error(), "frais de recouvrement") {
+		t.Errorf("le message doit nommer la mention manquante : %v", err)
+	}
+
+	inv = validInvoice(t)
+	inv.Notes = append(inv.Notes, Note{SubjectCode: "PMD", Content: "doublon"})
+	if ids := violations(t, inv); !hasRule(ids, "BR-FR-05") {
+		t.Errorf("BR-FR-05 attendue pour une mention PMD en double, obtenu %v", ids)
+	}
+
+	inv = validInvoice(t)
+	inv.Notes = nil
+	if ids := violations(t, inv); !hasRule(ids, "BR-FR-05") {
+		t.Errorf("BR-FR-05 attendue sans aucune note, obtenu %v", ids)
+	}
+}

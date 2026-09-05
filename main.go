@@ -27,6 +27,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kolapsis/gofact/internal/dotenv"
 	"github.com/kolapsis/gofact/internal/facturx"
@@ -240,11 +241,24 @@ func sendPDF(ctx context.Context, pdf, envPath string, poll bool) {
 	fmt.Printf("✓ Déposée sur %s — référence %s\n", receipt.Provider, receipt.Reference)
 	printEvents(receipt.Events)
 
-	if poll {
-		events, err := provider.Status(ctx, receipt.Reference)
-		if err != nil {
+	// Un rejet arrive en moins d'une seconde : le lire tout de suite, plutôt que
+	// de laisser « Déposée » passer pour un succès.
+	time.Sleep(time.Second)
+	events, err := provider.Status(ctx, receipt.Reference)
+	if err != nil {
+		if poll {
 			fail(err)
 		}
+		return
+	}
+	if rejected, reasons := pdp.Rejection(events); rejected {
+		fmt.Fprintln(os.Stderr, "✗ Facture REJETÉE par la plateforme :")
+		for _, r := range reasons {
+			fmt.Fprintln(os.Stderr, "  -", r)
+		}
+		os.Exit(1)
+	}
+	if poll {
 		fmt.Println("— cycle de vie —")
 		printEvents(events)
 	}
@@ -253,6 +267,9 @@ func sendPDF(ctx context.Context, pdf, envPath string, poll bool) {
 func printEvents(events []pdp.Event) {
 	for _, e := range events {
 		fmt.Printf("  %s  %-16s %s\n", e.CreatedAt, e.StatusCode, e.StatusText)
+		for _, r := range e.Reasons {
+			fmt.Printf("  %s  %-16s   - %s\n", strings.Repeat(" ", len(e.CreatedAt)), "", r)
+		}
 	}
 }
 

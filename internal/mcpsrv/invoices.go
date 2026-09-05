@@ -113,7 +113,7 @@ func addInvoiceTools(s *mcp.Server) {
 	type createIn struct {
 		orgParam
 		HTML           string       `json:"html" jsonschema:"la facture HTML complète et imprimable (A4, CSS embarqué), contenant le jeton {{NUMERO}} à l'emplacement du numéro"`
-		Spec           facturx.Spec `json:"spec" jsonschema:"les données structurées de la facture (montants en CENTIMES) ; ne pas renseigner number, le serveur l'attribue"`
+		Spec           facturx.Spec `json:"spec" jsonschema:"les données structurées de la facture (montants en CENTIMES) ; ne pas renseigner number, le serveur l'attribue ; title = objet de la facture (intitulé au registre) ; notes = compléments seulement, les mentions légales PMD/PMT/AAB sont ajoutées d'office ; sans electronic_address, l'acheteur est routé sur son SIREN (scheme 0225)"`
 		UpdateTemplate bool         `json:"update_template,omitempty" jsonschema:"true si ce HTML doit devenir le nouveau modèle de référence de l'organisation (changement de mise en page voulu par l'utilisateur)"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
@@ -173,6 +173,10 @@ func createInvoice(ctx context.Context, o *workspace.Org, html string, spec fact
 		if spec.IssueDate == "" {
 			spec.IssueDate = now.Format("2006-01-02")
 		}
+		// Le sidecar porte l'adresse de routage effectivement inscrite dans le XML
+		// (explicite, sinon dérivée du SIREN) : le fichier reflète la facture, et
+		// send_invoice peut s'y fier.
+		spec.Buyer.EAddr, spec.Buyer.EAddrSchema = facturx.ResolveRouting(spec.Buyer)
 		inv, err := spec.ToInvoiceWith(cfg)
 		if err != nil {
 			return workspace.RegistryEntry{}, err
@@ -217,7 +221,7 @@ func createInvoice(ctx context.Context, o *workspace.Org, html string, spec fact
 		}
 		return workspace.RegistryEntry{
 			Client:    client,
-			Projet:    firstLineName(spec),
+			Projet:    invoiceTitle(spec),
 			MontantHT: inv.LineTotal,
 			Fichier:   base + ".html",
 			DevisRef:  spec.BuyerRef,
@@ -303,9 +307,14 @@ func sanitizeFilename(name string) string {
 	return strings.TrimSpace(r.Replace(name))
 }
 
-func firstLineName(spec facturx.Spec) string {
+// invoiceTitle est l'intitulé inscrit au registre : l'objet déclaré de la
+// facture (title), sinon — en dernier recours — le libellé de la première ligne.
+func invoiceTitle(spec facturx.Spec) string {
+	if t := strings.TrimSpace(spec.Title); t != "" {
+		return t
+	}
 	if len(spec.Lines) > 0 {
-		return spec.Lines[0].Name
+		return strings.TrimSpace(spec.Lines[0].Name)
 	}
 	return ""
 }

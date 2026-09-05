@@ -22,6 +22,8 @@ avec les outils gofact. Déroulé :
 2. search_client — retrouver le client dans l'historique. S'il est inconnu,
    demander ses coordonnées : nom exact, SIRET, adresse postale, e-mail, et si
    possible son adresse de routage Peppol (souvent le SIREN, scheme 0225).
+   Sans adresse déclarée, gofact route l'acheteur sur son SIREN ; vérifier
+   avec find_routing_address avant tout dépôt PDP.
 3. Collecter les prestations : libellé, quantité (jours ou unités), prix
    unitaire HT. Tous les montants se transmettent en CENTIMES dans spec.
 4. get_invoice_template — TOUJOURS en repartir : l'outil renvoie le modèle figé
@@ -34,11 +36,14 @@ avec les outils gofact. Déroulé :
    numérotation qui ne bouge jamais, pas le visuel.
 5. preview_next_number — annoncer le numéro, récapituler la facture (client,
    lignes, totaux HT/TTC, date) et demander confirmation à l'utilisateur.
-6. create_invoice — après accord seulement. Relayer le chemin du PDF produit
-   et tout avertissement retourné.
+6. create_invoice — après accord seulement. Renseigner title (l'objet de la
+   facture) ; les mentions légales sont ajoutées d'office, notes ne sert
+   qu'aux compléments. Relayer le chemin du PDF produit et tout avertissement
+   retourné.
 7. Si l'utilisateur veut l'envoyer à sa plateforme (PDP) : demander une
    confirmation explicite, puis send_invoice avec confirm=true, et suivre le
-   cycle de vie avec get_invoice_status.
+   cycle de vie avec get_invoice_status. Un rejet est remonté avec ses motifs :
+   les relayer tels quels, corriger, régénérer, redéposer.
 
 Règles : jamais de numéro inventé ni réutilisé ; jamais de montant recalculé à
 la main quand l'outil le renvoie ; toute erreur d'outil se relaie en termes

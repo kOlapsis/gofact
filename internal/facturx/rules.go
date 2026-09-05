@@ -160,6 +160,23 @@ func (inv Invoice) Validate() error {
 		add("BR-53", "devise %s : la contre-valeur de TVA en EUR (BT-111) est requise", inv.Currency)
 	}
 
+	// Mentions légales françaises (BR-FR-05) : pénalités de retard (PMD), frais
+	// de recouvrement (PMT) et escompte (AAB) doivent figurer, une fois chacune,
+	// dans les notes du document (BG-1). Une PDP française rejette la facture
+	// sinon — et le socle EN 16931 seul ne le voit pas.
+	for _, code := range legalNoteCodes {
+		n := 0
+		for _, note := range inv.Notes {
+			if note.SubjectCode == code && strings.TrimSpace(note.Content) != "" {
+				n++
+			}
+		}
+		if n != 1 {
+			add("BR-FR-05", "la mention légale %s (%s, BT-21) doit figurer exactement une fois dans les "+
+				"notes de la facture (BG-1), trouvée %d fois", code, legalNoteLabels[code], n)
+		}
+	}
+
 	if len(v) == 0 {
 		return nil
 	}

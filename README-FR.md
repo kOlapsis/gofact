@@ -186,11 +186,21 @@ JSON ne porte que ce qui varie.
 Champs optionnels : `due_date` (défaut « à réception » = émission),
 `delivery_date` (défaut = émission), `currency` (défaut EUR), `vat`
 (défaut exonéré 293 B ; mettre `{"exempt": false, "rate_pct": "20.00"}` pour la
-TVA standard), `seller`, `iban`, `notes`.
+TVA standard), `seller`, `iban`, `title` (objet de la facture, inscrit au registre),
+`notes`.
+
+**Notes** : les trois mentions légales françaises — pénalités de retard (`PMD`), frais
+de recouvrement (`PMT`), escompte (`AAB`) — sont toujours émises (BR-FR-05). `notes`
+les **complète** : une note sans `subject_code` part en information générale (`AAI`) ;
+une note portant `PMD`, `PMT` ou `AAB` remplace la mention par défaut du même code.
+Aucune spec ne peut les faire disparaître : la génération refuse.
 
 **Routage PDP** : `seller`/`buyer` acceptent `electronic_address` (BT-34/BT-49) et
-`electronic_address_scheme` (ex. `"0225"`). Requis pour l'envoi à une PDP, qui route
-sur ces adresses plutôt que sur l'adresse postale. Exemple (override vendeur) :
+`electronic_address_scheme` (ex. `"0225"`). Une PDP route sur ces adresses, pas sur
+l'adresse postale. Sans adresse déclarée, chaque partie est routée sur son **SIREN**
+(dérivé du SIRET) en scheme `0225` ; l'e-mail (`EM`) n'est utilisé qu'à défaut de
+tout identifiant légal — il n'est pas dans l'annuaire, et `send_invoice` refuse alors
+le dépôt. Exemple (override vendeur) :
 
 ```json
 "seller": {

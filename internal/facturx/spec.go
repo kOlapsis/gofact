@@ -28,13 +28,19 @@ type Spec struct {
 	VAT          *VATSpec   `json:"vat,omitempty"`    // défaut : franchise 293 B (exonéré)
 	Seller       *PartySpec `json:"seller,omitempty"` // override ; défaut GOFACT_SELLER_*
 	IBAN         string     `json:"iban,omitempty"`   // override ; défaut GOFACT_PAYEE_IBAN
-	Notes        []NoteSpec `json:"notes,omitempty"`  // override ; défaut : mentions légales FR
+	// Notes complémentaires (BG-1). Les mentions légales PMD, PMT et AAB sont
+	// TOUJOURS présentes : une note du spec qui porte l'un de ces codes remplace
+	// la mention par défaut, une note sans code est une information générale (AAI).
+	Notes []NoteSpec `json:"notes,omitempty" jsonschema:"notes complémentaires (BG-1) ; les mentions légales PMD/PMT/AAB sont toujours ajoutées automatiquement — une note portant l'un de ces codes remplace la mention par défaut du même code, une note sans subject_code est une information générale (AAI)"`
+	// Objet de la facture, inscrit au registre comme intitulé du projet. À défaut,
+	// le libellé de la première ligne sert de dernier recours.
+	Title string `json:"title,omitempty" jsonschema:"objet de la facture en quelques mots (ex. « Refonte du site vitrine ») ; inscrit au registre comme intitulé du projet"`
 }
 
 // NoteSpec est une mention libre (BT-22) avec son code sujet (BT-21).
 type NoteSpec struct {
-	Content     string `json:"content"`
-	SubjectCode string `json:"subject_code,omitempty"`
+	Content     string `json:"content" jsonschema:"texte de la note"`
+	SubjectCode string `json:"subject_code,omitempty" jsonschema:"code sujet UNTDID 4451 ; vide ⇒ AAI (information générale) ; PMD, PMT ou AAB pour personnaliser la mention légale correspondante"`
 }
 
 // PartySpec décrit une partie. SIRET (14) prime pour dériver le SIREN (9) si SIREN absent.
@@ -76,6 +82,115 @@ var defaultNotes = []Note{
 	{SubjectCode: "PMD", Content: "En cas de retard de paiement, application de pénalités au taux annuel de trois fois le taux d'intérêt légal en vigueur (art. L441-10 du Code de commerce), exigibles dès le jour suivant la date d'échéance et sans rappel préalable."},
 	{SubjectCode: "PMT", Content: "Indemnité forfaitaire pour frais de recouvrement de 40 € (art. D441-5 du Code de commerce), applicable à chaque facture en retard, sans préjudice d'une indemnisation complémentaire sur justification."},
 	{SubjectCode: "AAB", Content: "Pas d'escompte pour paiement anticipé."},
+}
+
+// legalNoteCodes sont les codes sujet (BT-21) des trois mentions obligatoires,
+// dans l'ordre où elles sont émises.
+var legalNoteCodes = []string{"PMD", "PMT", "AAB"}
+
+// legalNoteLabels nomme chaque mention pour les messages d'erreur.
+var legalNoteLabels = map[string]string{
+	"PMD": "pénalités de retard",
+	"PMT": "frais de recouvrement",
+	"AAB": "escompte",
+}
+
+// generalNoteCode est le code sujet attribué à une note du spec qui n'en déclare
+// pas : AAI (UNTDID 4451, « information générale »). Sans lui, un paragraphe de
+// contexte partirait sans code et pourrait passer pour une mention légale.
+const generalNoteCode = "AAI"
+
+func isLegalNoteCode(code string) bool {
+	for _, c := range legalNoteCodes {
+		if c == code {
+			return true
+		}
+	}
+	return false
+}
+
+// mergeNotes compose les mentions du document : les trois mentions légales
+// d'abord, dans l'ordre PMD, PMT, AAB — chacune remplacée par la note du spec
+// qui porte le même code, s'il y en a une — puis les autres notes du spec.
+//
+// C'est délibérément une fusion, pas un remplacement : une note de contexte
+// ajoutée à la facture ne doit jamais faire disparaître une mention légale.
+// C'est exactement ce qui a fait rejeter une facture par une PDP (BR-FR-05)
+// alors que le validateur EN 16931 la disait conforme.
+func mergeNotes(user []NoteSpec) []Note {
+	replacements := map[string]Note{}
+	var extra []Note
+	for _, n := range user {
+		content := strings.TrimSpace(n.Content)
+		if content == "" {
+			continue
+		}
+		code := strings.ToUpper(strings.TrimSpace(n.SubjectCode))
+		if isLegalNoteCode(code) {
+			replacements[code] = Note{Content: content, SubjectCode: code}
+			continue
+		}
+		if code == "" {
+			code = generalNoteCode
+		}
+		extra = append(extra, Note{Content: content, SubjectCode: code})
+	}
+	out := make([]Note, 0, len(defaultNotes)+len(extra))
+	for _, d := range defaultNotes {
+		if r, ok := replacements[d.SubjectCode]; ok {
+			out = append(out, r)
+			continue
+		}
+		out = append(out, d)
+	}
+	return append(out, extra...)
+}
+
+// Schémas d'adresse électronique (EAS) rencontrés dans le routage FR. Une PDP
+// française route sur l'annuaire : 0225 (SIREN, réforme FR) et 0002 (SIRENE) y
+// figurent, un e-mail (EM) jamais — une facture adressée en EM est indélivrable.
+const (
+	eaddrSchemeEmail  = "EM"
+	eaddrSchemeSIRENE = "0002"
+)
+
+// ResolveRouting détermine l'adresse électronique (BT-34 vendeur, BT-49
+// acheteur) d'une partie, dans cet ordre :
+//
+//  1. l'adresse explicite (electronic_address), avec son schéma — ou, s'il
+//     manque, EM pour un e-mail et 0225 pour un identifiant ;
+//  2. sinon le SIREN, dérivé du SIRET au besoin, en 0225 ;
+//  3. sinon l'e-mail en EM, uniquement quand aucun identifiant légal n'est connu.
+//
+// Renvoie l'adresse et son schéma, vides si rien n'est exploitable. C'est la
+// même résolution pour les deux parties, et c'est elle que create_invoice
+// inscrit dans le sidecar : le fichier reflète le XML.
+func ResolveRouting(p PartySpec) (addr, scheme string) {
+	addr = strings.ReplaceAll(strings.TrimSpace(p.EAddr), " ", "")
+	scheme = strings.TrimSpace(p.EAddrSchema)
+	if addr != "" {
+		if scheme == "" {
+			scheme = defaultEAddrScheme
+			if strings.Contains(addr, "@") {
+				scheme = eaddrSchemeEmail
+			}
+		}
+		return addr, scheme
+	}
+	if siren := siren9(p.SIREN, p.SIRET); siren != "" {
+		return siren, defaultEAddrScheme
+	}
+	if email := strings.TrimSpace(p.Email); email != "" {
+		return email, eaddrSchemeEmail
+	}
+	return "", ""
+}
+
+// IsRoutableScheme dit si un schéma d'adresse est routable par une PDP
+// française — c'est-à-dire présent dans l'annuaire : 0225 ou 0002.
+func IsRoutableScheme(scheme string) bool {
+	scheme = strings.TrimSpace(scheme)
+	return scheme == defaultEAddrScheme || scheme == eaddrSchemeSIRENE
 }
 
 // LoadSpec lit et décode un fichier JSON de spécification de facture.
@@ -121,13 +236,14 @@ func partyToCII(p PartySpec, fallbackCountry string) Party {
 	if country == "" {
 		country = fallbackCountry
 	}
+	eaddr, scheme := ResolveRouting(p)
 	return Party{
 		Name:        p.Name,
 		VATNumber:   strings.ReplaceAll(strings.TrimSpace(p.VATNumber), " ", ""),
 		SIREN:       siren9(p.SIREN, p.SIRET),
 		Email:       strings.TrimSpace(p.Email),
-		EAddr:       strings.TrimSpace(p.EAddr),
-		EAddrScheme: strings.TrimSpace(p.EAddrSchema),
+		EAddr:       eaddr,
+		EAddrScheme: scheme,
 		Address:     p.Address,
 		PostalCode:  p.PostalCode,
 		City:        p.City,
@@ -322,18 +438,10 @@ func (s Spec) ToInvoiceWith(cfg Config) (Invoice, error) {
 		iban = cfg.IBAN
 	}
 
-	notes := defaultNotes
-	if len(s.Notes) > 0 {
-		notes = make([]Note, 0, len(s.Notes))
-		for _, n := range s.Notes {
-			notes = append(notes, Note{Content: n.Content, SubjectCode: n.SubjectCode})
-		}
-	}
-
 	inv := Invoice{
 		Number:          strings.TrimSpace(s.Number),
 		Type:            docType,
-		Notes:           notes,
+		Notes:           mergeNotes(s.Notes),
 		IssueDate:       issue,
 		DueDate:         due,
 		DeliveryDate:    delivery,

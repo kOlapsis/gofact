@@ -63,7 +63,19 @@ l'organisation : le JSON ne porte que ce qui varie.
 Champs optionnels : `type` (`invoice` | `credit_note`), `due_date` (défaut : à
 réception), `delivery_date` (défaut : émission), `currency` (défaut EUR), `vat`
 (`{"exempt": false, "rate_pct": "20.00"}` pour la TVA standard), `buyer_reference`,
-`seller`, `iban`, `notes`.
+`seller`, `iban`, `title` (objet de la facture, inscrit au registre), `notes`.
+
+!!! note "Notes et mentions légales"
+    Les trois mentions obligatoires — pénalités de retard (`PMD`), frais de
+    recouvrement (`PMT`), escompte (`AAB`) — sont **toujours** émises. `notes` les
+    complète : une note sans `subject_code` part en information générale (`AAI`),
+    une note portant `PMD`, `PMT` ou `AAB` remplace la mention par défaut du même
+    code. Une facture qui en perdrait une est refusée avant génération (BR-FR-05).
+
+!!! note "Adresse de routage de l'acheteur"
+    Sans `electronic_address`, l'acheteur est routé sur son SIREN (dérivé du SIRET)
+    en scheme `0225`, comme le vendeur. L'e-mail (`EM`) ne sert qu'à défaut de tout
+    identifiant légal — et une PDP ne sait pas le livrer.
 
 ## Organisations
 
