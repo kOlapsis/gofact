@@ -18,5 +18,11 @@
 /dist/
 
 # Notes de passation et audits — travail local, jamais versionné
-/HANDOFF-*.md
 /handoff/
+
+# Dispositif de communication et pilotage — travail local, jamais versionné.
+# Le dépôt public porte le code et la documentation, rien d'autre.
+/comms/
+/DISTRIBUTION.md
+/scripts/publish.sh
+/.claude/skills/gofact-comms/
