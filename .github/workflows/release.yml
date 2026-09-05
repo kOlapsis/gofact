@@ -102,10 +102,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Écrit dans homebrew-tap et scoop-bucket, que GITHUB_TOKEN n'atteint
-          # pas. Absent, la formule et le manifeste sont produits sans être
-          # poussés : la release aboutit quand même.
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
 
       # Registre officiel MCP. gofact n'étant dans aucun registre de paquets, la
       # seule voie est le type `mcpb` : un bundle par plateforme, hébergé sur la
