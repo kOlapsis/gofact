@@ -102,6 +102,9 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Clé SSH d'un compte AUR. Absente, le PKGBUILD est produit sans être
+          # poussé et la release aboutit quand même.
+          AUR_KEY: ${{ secrets.AUR_KEY }}
 
       # Registre officiel MCP. gofact n'étant dans aucun registre de paquets, la
       # seule voie est le type `mcpb` : un bundle par plateforme, hébergé sur la
