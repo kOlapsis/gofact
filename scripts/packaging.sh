@@ -14,7 +14,7 @@ set -euo pipefail
 
 REPO=kOlapsis/gofact
 DESC="Compliant French e-invoicing: HTML to Factur-X (PDF/A-3 + EN 16931 CII XML), locally"
-HOME_PAGE="https://kolapsis.github.io/gofact/"
+HOME_PAGE="https://gofact.kolapsis.com/"
 
 command -v jq >/dev/null || { echo "jq requis" >&2; exit 1; }
 

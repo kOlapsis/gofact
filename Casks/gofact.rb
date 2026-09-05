@@ -25,7 +25,7 @@ cask "gofact" do
 
   name "gofact"
   desc "Compliant French e-invoicing: HTML to Factur-X (PDF/A-3 + EN 16931 CII XML), locally"
-  homepage "https://kolapsis.github.io/gofact/"
+  homepage "https://gofact.kolapsis.com/"
 
   livecheck do
     skip "Auto-generated on release."

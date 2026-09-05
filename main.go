@@ -86,7 +86,7 @@ Mode direct, sans IA :
                                (`+"`gofact -html x.html -h`"+` pour les options)
 
 Pour commencer : `+"`gofact install`"+`, puis demandez une facture à votre IA.
-Documentation : https://kolapsis.github.io/gofact/
+Documentation : https://gofact.kolapsis.com/
 
 gofact n'est pas une plateforme agréée : il produit le fichier, votre
 plateforme agréée le transporte.

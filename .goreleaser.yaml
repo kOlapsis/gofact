@@ -25,7 +25,7 @@ archives:
 nfpms:
   - package_name: gofact
     vendor: kOlapsis
-    homepage: "https://kolapsis.github.io/gofact/"
+    homepage: "https://gofact.kolapsis.com/"
     maintainer: Benjamin Touchard <benjamin@kolapsis.com>
     description: |-
       Compliant French e-invoicing, locally.
@@ -53,7 +53,7 @@ nfpms:
 # PKGBUILD est produit sans être poussé et la release aboutit quand même.
 aurs:
   - name: gofact-bin
-    homepage: "https://kolapsis.github.io/gofact/"
+    homepage: "https://gofact.kolapsis.com/"
     description: "Compliant French e-invoicing: HTML to Factur-X (PDF/A-3 + EN 16931 CII XML), locally"
     maintainers:
       - "Benjamin Touchard <benjamin@kolapsis.com>"
@@ -118,7 +118,7 @@ release:
     ```
 
     Puis `gofact install` pour déclarer le serveur MCP à votre client IA.
-    Le [guide de démarrage](https://kolapsis.github.io/gofact/demarrage/) mène à
+    Le [guide de démarrage](https://gofact.kolapsis.com/demarrage/) mène à
     la première facture.
 
     ---
@@ -130,5 +130,5 @@ release:
     votre plateforme agréée le transporte jusqu'à votre client et à
     l'administration.
 
-    Documentation : <https://kolapsis.github.io/gofact/> ·
+    Documentation : <https://gofact.kolapsis.com/> ·
     Un problème, une question : [ouvrez une issue](https://github.com/kOlapsis/gofact/issues/new)
