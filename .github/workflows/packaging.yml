@@ -1,0 +1,38 @@
+name: Recettes de paquets
+
+# La cask Homebrew et le manifeste Scoop vivent dans ce dépôt, pas dans un tap
+# et un bucket séparés. Écrire ici ne demande donc aucun secret : le
+# GITHUB_TOKEN du dépôt suffit.
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Régénérer la cask et le manifeste
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/packaging.sh
+
+      - name: Committer si la version a changé
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "recettes déjà à jour"
+            exit 0
+          fi
+          version=$(jq -r .version bucket/gofact.json)
+          git add Casks/gofact.rb bucket/gofact.json
+          git commit -m "packaging: recettes brew et scoop en $version"
+          git push

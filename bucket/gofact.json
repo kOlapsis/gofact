@@ -1,0 +1,35 @@
+{
+  "version": "1.1.0",
+  "description": "Compliant French e-invoicing: HTML to Factur-X (PDF/A-3 + EN 16931 CII XML), locally",
+  "homepage": "https://kolapsis.github.io/gofact/",
+  "license": "AGPL-3.0-or-later",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/kOlapsis/gofact/releases/download/v1.1.0/gofact_1.1.0_windows_amd64.zip",
+      "bin": [
+        "gofact.exe"
+      ],
+      "hash": "7bbc604b59e34ddb5a5741358c525d5ddaec9ae7fd6b73bc34fbdea169b60e97"
+    },
+    "arm64": {
+      "url": "https://github.com/kOlapsis/gofact/releases/download/v1.1.0/gofact_1.1.0_windows_arm64.zip",
+      "bin": [
+        "gofact.exe"
+      ],
+      "hash": "b7c12a27e0f2ab0112ea9455695f0f0d7247a8e647493ab1a39e01212c786361"
+    }
+  },
+  "checkver": {
+    "github": "https://github.com/kOlapsis/gofact"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/kOlapsis/gofact/releases/download/v$version/gofact_$version_windows_amd64.zip"
+      },
+      "arm64": {
+        "url": "https://github.com/kOlapsis/gofact/releases/download/v$version/gofact_$version_windows_arm64.zip"
+      }
+    }
+  }
+}

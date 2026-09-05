@@ -124,6 +124,13 @@ jobs:
           TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
         run: gh release upload "$TAG" dist/mcpb/*.mcpb --clobber
 
+  # Recettes brew et scoop : régénérées depuis la release qui vient de sortir.
+  packaging:
+    needs: release
+    uses: ./.github/workflows/packaging.yml
+    permissions:
+      contents: write
+
   # Publication au registre MCP : un workflow à part, rejouable seul si elle rate.
   registry:
     needs: release

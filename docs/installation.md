@@ -26,20 +26,24 @@ est automatisée par `gofact install`.
 === "Homebrew (macOS, Linux)"
 
     ```sh
-    brew install kOlapsis/tap/gofact
+    brew tap kOlapsis/gofact https://github.com/kOlapsis/gofact
+    brew install kOlapsis/gofact/gofact
     ```
 
-    Tap personnel : Homebrew core impose un seuil de notoriété que gofact n'atteint
-    pas encore. `brew upgrade` suit les releases.
+    La recette vit dans le dépôt de gofact, d'où l'URL explicite : la forme
+    courte `brew tap` exige un dépôt nommé `homebrew-*`. Homebrew core, lui,
+    impose un seuil de notoriété que gofact n'atteint pas encore.
+    `brew upgrade` suit ensuite les releases.
 
 === "Scoop (Windows)"
 
     ```powershell
-    scoop bucket add kolapsis https://github.com/kOlapsis/scoop-bucket
+    scoop bucket add gofact https://github.com/kOlapsis/gofact
     scoop install gofact
     ```
 
-    Bucket personnel, pour la même raison. `scoop update gofact` suit les releases.
+    Le manifeste vit lui aussi dans le dépôt de gofact. `scoop update gofact`
+    suit les releases.
 
 === "Paquet Debian / RPM / Alpine"
 

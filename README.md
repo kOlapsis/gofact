@@ -214,15 +214,18 @@ shows what it intends to write (dry-run by default), backs up every file before
 modifying it and never overwrites a diverging entry without `-force`. Windows:
 `install.ps1`.
 
-**Package managers** (personal tap and bucket — Homebrew core and the main
-Scoop bucket both require a popularity threshold gofact has not reached):
+**Package managers** — the cask and the manifest live in this repository, hence
+the explicit URLs (Homebrew's short `brew tap` form requires a `homebrew-*`
+repository name; Homebrew core and the main Scoop bucket both gate on a
+popularity threshold gofact has not reached):
 
 ```sh
-brew install kOlapsis/tap/gofact
+brew tap kOlapsis/gofact https://github.com/kOlapsis/gofact
+brew install kOlapsis/gofact/gofact
 ```
 
 ```powershell
-scoop bucket add kolapsis https://github.com/kOlapsis/scoop-bucket
+scoop bucket add gofact https://github.com/kOlapsis/gofact
 scoop install gofact
 ```
 
