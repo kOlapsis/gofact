@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# publish.sh — publie un contenu de comms/queue/ sur le canal indiqué par son
+# publish.sh — publie un contenu de handoff/comms/queue/ sur le canal indiqué par son
 # en-tête YAML.
 #
-#   ./scripts/publish.sh comms/queue/2026-09-08-linkedin-1er-septembre.md
-#   ./scripts/publish.sh --dry-run <fichier>     # n'appelle aucune API
+#   ./handoff/publish.sh handoff/comms/queue/2026-09-08-linkedin-1er-septembre.md
+#   ./handoff/publish.sh --dry-run <fichier>     # n'appelle aucune API
 #
 # Codes de sortie
 #   0  publié (ou simulation réussie en --dry-run)

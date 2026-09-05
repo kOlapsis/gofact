@@ -85,7 +85,7 @@ cherchent « comment recevoir une facture électronique », « Factur-X gratuit 
 que quiconque, et gofact être la conclusion évidente de la réponse.
 
 *Levier :* un article de fond par semaine dans `docs/comprendre/`, indexable,
-sourcé, honnête sur les limites du produit. Le contenu éditorial de `comms/`
+sourcé, honnête sur les limites du produit. Le contenu éditorial de `handoff/comms/`
 sert ce pari.
 
 ### Pari 2 — Être présent là où l'audience regarde déjà
@@ -116,7 +116,7 @@ Objet de l'audit d'embarquement.
   sans effet mesurable au bout de quatre semaines est abandonné, pas rejoué
   « en mieux ».
 - **La vérité avant le volume.** Une affirmation fausse sur la réforme coûte
-  plus cher que dix publications manquées. `comms/GUARDRAILS.md` s'applique à
+  plus cher que dix publications manquées. `handoff/comms/GUARDRAILS.md` s'applique à
   toute la distribution, pas seulement au contenu éditorial.
 - **On ne brûle pas une communauté.** Reddit, Hacker News, LinuxFr et les
   forums d'indépendants sanctionnent durablement la promotion déguisée. On y

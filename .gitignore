@@ -16,6 +16,3 @@
 /.vscode/
 /site/
 /dist/
-
-# Notes de passation et audits — travail local, jamais versionné
-/handoff/

@@ -107,9 +107,9 @@ dispositif.
 
 Une session automatisée applique en plus :
 
-- **Rien ne part sans passer par la file `comms/queue/`.** Pas de rédaction
+- **Rien ne part sans passer par la file `handoff/comms/queue/`.** Pas de rédaction
   directe vers un canal.
-- **Un contenu publié est déplacé dans `comms/published/`** avec sa date et son
+- **Un contenu publié est déplacé dans `handoff/comms/published/`** avec sa date et son
   URL. Cet historique est la mémoire de la machine : il évite de republier deux
   fois le même angle.
 - **Fenêtre horaire :** publication sociale entre 7h et 19h, heure de Paris,

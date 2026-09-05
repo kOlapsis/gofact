@@ -199,7 +199,7 @@ Objectifs à 12 semaines, volontairement modestes et vérifiables :
 L'indicateur qui compte réellement est le cinquième. Des étoiles sans une
 seule issue signifient que le produit est admiré et non utilisé.
 
-Relevé consigné chaque vendredi dans `comms/METRICS.md`.
+Relevé consigné chaque vendredi dans `handoff/comms/METRICS.md`.
 
 ---
 

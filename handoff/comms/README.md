@@ -45,7 +45,7 @@ session repartie de zéro puisse reprendre sans rien republier deux fois.
 
 ## Publication
 
-`scripts/publish.sh <fichier>` route selon le champ `canal` de l'en-tête et
+`handoff/publish.sh <fichier>` route selon le champ `canal` de l'en-tête et
 selon les jetons présents dans l'environnement. Sans jeton pour le canal
 concerné, il sort en **code 3** — la session bascule alors sur le repli manuel :
 le contenu est envoyé à Benjamin, prêt à coller, et reste dans la file.
@@ -56,7 +56,7 @@ automatique canal par canal à mesure que les accès sont ouverts.
 Test sans appel réseau :
 
 ```sh
-./scripts/publish.sh --dry-run comms/queue/2026-09-08-linkedin-ce-qui-a-change.md
+./handoff/publish.sh --dry-run handoff/comms/queue/2026-09-08-linkedin-ce-qui-a-change.md
 ```
 
 ## Accès à ouvrir
