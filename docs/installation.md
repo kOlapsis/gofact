@@ -51,8 +51,8 @@ est automatisée par `gofact install`.
 
     ```sh
     # Debian, Ubuntu
-    curl -fsSLO https://github.com/kOlapsis/gofact/releases/latest/download/gofact_1.1.0_linux_amd64.deb
-    sudo dpkg -i gofact_1.1.0_linux_amd64.deb
+    curl -fsSLO https://github.com/kOlapsis/gofact/releases/latest/download/gofact_1.2.0_linux_amd64.deb
+    sudo dpkg -i gofact_1.2.0_linux_amd64.deb
     ```
 
     L'intérêt sur le script : une désinstallation propre (`apt remove gofact`).
