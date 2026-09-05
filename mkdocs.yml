@@ -1,6 +1,6 @@
 site_name: gofact
 site_description: Facturation électronique française (Factur-X) pilotée par votre IA — en local.
-site_url: https://kolapsis.github.io/gofact/
+site_url: https://gofact.kolapsis.com/
 repo_url: https://github.com/kOlapsis/gofact
 repo_name: kOlapsis/gofact
 edit_uri: edit/main/docs/
@@ -24,6 +24,45 @@ theme:
     - navigation.footer
     - content.code.copy
     - content.action.edit
+
+plugins:
+  - search
+  # llms.txt et llms-full.txt (https://llmstxt.org/) : la documentation en
+  # Markdown, lisible par les modèles de langage, régénérée à chaque build.
+  - llmstxt:
+      full_output: llms-full.txt
+      markdown_description: |
+        gofact est un logiciel libre (AGPL-3.0) de facturation électronique
+        française pour indépendants et TPE. Il produit des factures Factur-X
+        conformes — un PDF/A-3 embarquant le XML CII au profil EN 16931 — en
+        local, sans compte ni service en ligne, piloté par une IA via un serveur
+        MCP (Model Context Protocol) ou en ligne de commande. Numérotation
+        légale, registre des factures, modèle figé, dépôt sur la plateforme.
+
+        gofact n'est pas une plateforme agréée : il produit le fichier, la
+        plateforme agréée choisie par l'utilisateur le transmet.
+
+        Repères réglementaires : réception obligatoire des factures
+        électroniques pour toutes les entreprises depuis le 1er septembre 2026 ;
+        émission obligatoire pour les PME, TPE et micro-entreprises au
+        1er septembre 2027. Code source : https://github.com/kOlapsis/gofact
+      sections:
+        Démarrer:
+          - index.md: Ce que fait gofact, en une page
+          - installation.md: Obtenir le binaire et le déclarer auprès des clients MCP
+          - demarrage.md: De l'organisation à la première facture, en conversation avec son IA
+        Guide:
+          - guide/mcp.md: Le serveur MCP, ses outils et son contrat
+          - guide/cli.md: Le mode direct en ligne de commande, HTML + JSON vers Factur-X
+          - guide/organisation.md: Le dossier d'organisation, sans base de données ni état caché
+        Comprendre la réforme:
+          - comprendre/reforme-independant.md: Ce qui s'applique vraiment à un indépendant, et à quelle date
+          - comprendre/choisir-plateforme-agreee.md: Choisir sa plateforme agréée quand on facture peu
+        Conformité et transmission:
+          - conformite.md: Factur-X, PDF/A-3, EN 16931 et ce que gofact vérifie
+          - pdp.md: Déposer ses factures sur une plateforme
+        Aide:
+          - faq.md: Questions fréquentes et dépannage
 
 nav:
   - Accueil: index.md

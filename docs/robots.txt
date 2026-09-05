@@ -1,0 +1,9 @@
+# gofact — documentation. Tout est public et indexable, moteurs de recherche
+# comme robots d'IA. Le plan du site et les versions texte pour les modèles
+# de langage sont déclarés ci-dessous.
+User-agent: *
+Allow: /
+
+Sitemap: https://gofact.kolapsis.com/sitemap.xml
+# Versions texte pour les LLM : https://gofact.kolapsis.com/llms.txt
+#                               https://gofact.kolapsis.com/llms-full.txt
