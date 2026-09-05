@@ -23,7 +23,7 @@ Le PPF n'achemine plus rien depuis 2024 ; il tient l'annuaire — le registre qu
 indique où chaque entreprise reçoit ses factures — et sert de concentrateur
 pour les données fiscales. Être déclaré dans cet annuaire, sur une PA de votre
 choix, est l'action réellement urgente : c'est elle qui rend vos factures
-reçevables.
+recevables.
 
 Ce que ce rôle **n'inclut pas** : produire la facture. La confusion vient du
 marché, qui vend presque toujours les deux ensemble — production et
