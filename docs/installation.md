@@ -23,6 +23,24 @@ est automatisée par `gofact install`.
     Installe dans `%LOCALAPPDATA%\gofact`. Edge étant préinstallé, aucun autre
     prérequis.
 
+=== "Homebrew (macOS, Linux)"
+
+    ```sh
+    brew install kOlapsis/tap/gofact
+    ```
+
+    Tap personnel : Homebrew core impose un seuil de notoriété que gofact n'atteint
+    pas encore. `brew upgrade` suit les releases.
+
+=== "Scoop (Windows)"
+
+    ```powershell
+    scoop bucket add kolapsis https://github.com/kOlapsis/scoop-bucket
+    scoop install gofact
+    ```
+
+    Bucket personnel, pour la même raison. `scoop update gofact` suit les releases.
+
 === "Depuis les sources"
 
     ```sh
