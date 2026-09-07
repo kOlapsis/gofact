@@ -58,6 +58,7 @@ plugins:
         Comprendre la réforme:
           - comprendre/reforme-independant.md: Ce qui s'applique vraiment à un indépendant, et à quelle date
           - comprendre/choisir-plateforme-agreee.md: Choisir sa plateforme agréée quand on facture peu
+          - comprendre/anatomie-facturx.md: Ce qu'il y a vraiment dans un fichier Factur-X
         Conformité et transmission:
           - conformite.md: Factur-X, PDF/A-3, EN 16931 et ce que gofact vérifie
           - pdp.md: Déposer ses factures sur une plateforme
@@ -75,6 +76,7 @@ nav:
   - Comprendre la réforme:
       - Ce qui s'applique à un indépendant: comprendre/reforme-independant.md
       - Choisir sa plateforme agréée: comprendre/choisir-plateforme-agreee.md
+      - Anatomie d'un Factur-X: comprendre/anatomie-facturx.md
   - Conformité: conformite.md
   - Envoi PDP: pdp.md
   - FAQ & dépannage: faq.md
