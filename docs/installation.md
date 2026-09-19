@@ -94,6 +94,21 @@ Chaque fichier est **sauvegardé** avant modification (`.bak-` horodaté), l'éc
 atomique, et une entrée `gofact` existante qui pointerait ailleurs n'est jamais écrasée
 sans `-force`. Redémarrez ensuite le client pour qu'il découvre le serveur.
 
+## Alternative : l'extension Claude Desktop
+
+Chaque release publie un bundle `.mcpb` par plateforme
+(`gofact-mcp_<version>_<os>_<arch>.mcpb`), qui contient le binaire. Téléchargez celui
+de votre machine sur la [page des releases](https://github.com/kOlapsis/gofact/releases/latest)
+et ouvrez-le : Claude Desktop l'installe comme extension, sans `gofact install`.
+
+À l'installation, Claude Desktop propose de saisir vos identifiants SuperPDP. Ils sont
+facultatifs : sans eux, gofact produit les factures mais ne les envoie pas (voir
+[Envoi PDP](pdp.md)).
+
+!!! note "Ce que l'extension n'installe pas"
+    Le binaire reste dans le dossier de l'extension : il n'y a pas de commande `gofact`
+    dans le terminal, et les autres clients MCP ne sont pas configurés.
+
 ## Alternative : le plugin Claude Code
 
 Pour les utilisateurs de Claude Code, le dépôt est aussi un plugin :

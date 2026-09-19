@@ -19,9 +19,9 @@ func init() {
 		}
 		if cfg.ClientID == "" || cfg.ClientSecret == "" {
 			return nil, fmt.Errorf("aucun compte SuperPDP configuré : renseigner SUPERPDP_CLIENT_ID et " +
-				"SUPERPDP_CLIENT_SECRET dans le .env de l'organisation (identifiants fournis par la " +
-				"plateforme). Ces valeurs ne se communiquent jamais en conversation : elles se placent " +
-				"directement dans le fichier")
+				"SUPERPDP_CLIENT_SECRET dans le .env de l'organisation, ou dans les réglages de l'extension " +
+				"gofact de Claude Desktop (identifiants fournis par la plateforme). Ces valeurs ne se " +
+				"communiquent jamais en conversation : l'utilisateur les saisit lui-même")
 		}
 		return &provider{cli: New(cfg)}, nil
 	})

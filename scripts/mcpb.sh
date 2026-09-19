@@ -18,6 +18,14 @@ DESCRIPTION="Creates compliant French e-invoices locally: Factur-X PDF/A-3 with 
 command -v jq >/dev/null || { echo "jq requis" >&2; exit 1; }
 command -v zip >/dev/null || { echo "zip requis" >&2; exit 1; }
 
+validate() {
+	if command -v mcpb >/dev/null; then
+		mcpb validate "$1"
+	else
+		npx -y @anthropic-ai/mcpb validate "$1"
+	fi
+}
+
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
@@ -58,10 +66,34 @@ while IFS="$(printf '\t')" read -r path goos goarch; do
 		server: {
 			type: "binary",
 			entry_point: $bin,
-			mcp_config: { command: ("${__dirname}/" + $bin), args: ["mcp"], env: {} }
+			mcp_config: {
+				command: ("${__dirname}/" + $bin),
+				args: ["mcp"],
+				env: {
+					SUPERPDP_CLIENT_ID: "${user_config.superpdp_client_id}",
+					SUPERPDP_CLIENT_SECRET: "${user_config.superpdp_client_secret}"
+				}
+			}
+		},
+		user_config: {
+			superpdp_client_id: {
+				type: "string",
+				title: "SuperPDP — client ID",
+				description: "Identifiant OAuth fourni par SuperPDP. Laisser vide pour générer les factures sans les envoyer.",
+				sensitive: true,
+				required: false
+			},
+			superpdp_client_secret: {
+				type: "string",
+				title: "SuperPDP — client secret",
+				description: "Secret OAuth fourni par SuperPDP.",
+				sensitive: true,
+				required: false
+			}
 		},
 		compatibility: { platforms: [$p] }
 	}' > "$work/manifest.json"
+	validate "$work/manifest.json"
 
 	# L'URL doit pointer une release GitHub : c'est un hébergeur autorisé par le
 	# registre officiel, et le nom porte « mcp » pour rester lisible côté client.

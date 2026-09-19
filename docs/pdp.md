@@ -19,6 +19,12 @@ irréversible de l'outil, et elle est traitée comme telle.
     # SUPERPDP_BASE="https://api.superpdp.tech"   # optionnel
     ```
 
+    Avec l'extension Claude Desktop (bundle `.mcpb`), les deux identifiants se
+    saisissent plutôt dans les réglages de l'extension gofact, qui les range dans le
+    trousseau du système. Ils valent alors pour toutes les organisations ; le `.env`
+    d'un dossier reste prioritaire, et `~/.config/gofact/.env` ne sert qu'en dernier
+    recours.
+
 3. **Un destinataire adressable.** La PDP route sur l'adresse électronique de
    l'acheteur (BT-49), pas sur son adresse postale. `find_routing_address` vérifie
    l'annuaire Peppol à partir du SIREN :
