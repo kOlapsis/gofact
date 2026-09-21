@@ -45,14 +45,15 @@ func Parse(path string) (map[string]string, error) {
 }
 
 // Load lit un fichier .env et exporte ses clés dans l'environnement, sans jamais
-// écraser une variable déjà définie. Un fichier absent n'est pas une erreur.
+// écraser une variable déjà définie et non vide. Un fichier absent n'est pas une erreur.
 func Load(path string) error {
 	vars, err := Parse(path)
 	if err != nil {
 		return err
 	}
 	for k, v := range vars {
-		if _, set := os.LookupEnv(k); !set {
+		// Un champ user_config laissé vide dans un bundle .mcpb arrive comme une variable vide.
+		if cur, set := os.LookupEnv(k); !set || cur == "" {
 			_ = os.Setenv(k, v)
 		}
 	}
