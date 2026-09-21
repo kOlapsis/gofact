@@ -94,6 +94,15 @@ gofact send -pdf f.pdf -poll       # dépose un PDF existant
 
 Identifiants lus dans l'environnement ou le `.env` (voir [Envoi PDP](../pdp.md)).
 
+```sh
+gofact paid -number 2026001 [-date AAAA-MM-JJ] [-amount 300.00]   # signale un encaissement
+gofact sync                         # récupère les factures reçues, met à jour l'export
+gofact export -month 2026-09 -to …  # export comptable d'un mois
+gofact schedule [-every 1h] [-yes]  # lance gofact sync à intervalle régulier
+```
+
+Voir [Export comptable](export.md).
+
 ## Serveur et installation
 
 ```sh
@@ -106,4 +115,4 @@ gofact install [-yes]      # configure les clients MCP du poste
 Le fichier [`.env.example`](https://github.com/kOlapsis/gofact/blob/main/.env.example)
 du dépôt les documente toutes : identité `GOFACT_SELLER_*`, `GOFACT_PAYEE_IBAN`,
 mentions d'exonération `GOFACT_VAT_*`, `GOFACT_CHROME`, `GOFACT_OFFLINE`,
-`GOFACT_PDP`, `SUPERPDP_*`.
+`GOFACT_PDP`, `GOFACT_EXPORT_DIR`, `SUPERPDP_*`.

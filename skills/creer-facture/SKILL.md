@@ -84,6 +84,10 @@ Uniquement si l'utilisateur le demande, avec une confirmation explicite (« dép
 facture N sur la PDP ? ») : `send_invoice` avec `confirm=true`, puis `get_invoice_status`
 pour le cycle de vie (`fr:200` déposée → `fr:201` émise → `fr:202` reçue).
 
+Si la facture est déjà payée, proposer ensuite de signaler l'encaissement :
+`report_payment` avec `confirm=true`, après accord explicite. Ce statut est déclaré à
+l'administration, il ne se signale donc qu'une fois le règlement réellement reçu.
+
 ## Règles à ne pas transgresser
 - Le numéro vient **toujours** du serveur : jamais inventé, jamais réutilisé, jamais
   antidaté. `preview_next_number` annonce, `create_invoice` attribue.

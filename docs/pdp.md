@@ -70,6 +70,38 @@ Le cycle de vie s'affiche au dépôt et se consulte ensuite (`get_invoice_status
 Chaque dépôt est tracé dans le `journal.ndjson` du dossier : quoi, quand, sous quelle
 référence.
 
+## Signaler un encaissement
+
+Quand le client a payé, signalez-le à la plateforme : le statut `fr:212` « Encaissée »
+alimente la déclaration des paiements à l'administration (e-reporting). Une facture
+payée dès l'émission se signale juste après son dépôt.
+
+En conversation, l'IA appelle `report_payment` après votre confirmation. Au terminal :
+
+```sh
+gofact paid -number 2026001                                  # total, encaissé aujourd'hui
+gofact paid -number 2026001 -date 2026-09-12                 # total, encaissé à cette date
+gofact paid -number 2026001 -date 2026-09-12 -amount 300.00  # paiement partiel
+```
+
+Un encaissement daté ou partiel doit être ventilé par taux de TVA. gofact fait ce
+calcul à partir des données de la facture, au prorata du TTC de chaque taux. La date
+d'encaissement apparaît ensuite dans `list_invoices` et dans l'export comptable.
+
+## Factures reçues
+
+Les factures de vos fournisseurs arrivent sur la plateforme. `gofact sync` les
+récupère : chaque nouvelle facture est rangée en PDF dans le dossier `recues/AAAA-MM/`
+de l'organisation, et une notification s'affiche sur le bureau. Une facture reçue en
+XML seul est convertie en PDF lisible par la plateforme.
+
+Le fichier `pdp-sync.json` retient la dernière facture récupérée : chaque passage ne
+rapatrie que les nouvelles, et un passage interrompu reprend où il s'était arrêté.
+
+Pour être prévenu sans y penser, planifiez la commande (voir
+[Export comptable](guide/export.md#planifier)). En conversation, l'IA voit les factures
+reçues avec `list_received_invoices`.
+
 ## Rejets courants
 
 | Message | Cause | Correction |
