@@ -1,7 +1,6 @@
 // Package pdp abstrait la plateforme de dématérialisation partenaire (PDP) sur
-// laquelle les factures sont déposées. L'interface est volontairement minimale
-// — déposer, suivre — et ne s'élargira qu'à l'arrivée d'un second fournisseur
-// réel : généraliser sur un seul cas produit des abstractions fausses.
+// laquelle les factures sont déposées et reçues. L'interface ne couvre que ce
+// dont gofact se sert : déposer, suivre, signaler un encaissement, recevoir.
 package pdp
 
 import (
@@ -75,6 +74,41 @@ type Provider interface {
 	Send(ctx context.Context, pdfPath string) (Receipt, error)
 	// Status renvoie le cycle de vie d'un dépôt antérieur.
 	Status(ctx context.Context, reference string) ([]Event, error)
+	// ReportPayment signale l'encaissement d'une facture émise.
+	ReportPayment(ctx context.Context, reference string, p Payment) error
+	// Received liste les factures reçues après le curseur afterID, dans l'ordre d'arrivée.
+	Received(ctx context.Context, afterID int64) ([]Incoming, error)
+	// Download renvoie le PDF Factur-X lisible d'une facture, émise ou reçue.
+	Download(ctx context.Context, reference string) ([]byte, error)
+}
+
+// Payment décrit un encaissement ; sans ventilation, la plateforme retient le total de la facture à la date du signalement.
+type Payment struct {
+	Date     string // ISO YYYY-MM-DD
+	Currency string
+	Parts    []PaymentPart
+}
+
+// PaymentPart est la part d'un encaissement soumise à un taux de TVA.
+type PaymentPart struct {
+	Amount  string // décimal, ex. "1200.00"
+	VATRate string // pourcentage, ex. "20.00"
+}
+
+// Incoming est une facture reçue par la plateforme.
+type Incoming struct {
+	Provider   string `json:"provider"`
+	Reference  string `json:"reference"`
+	Cursor     int64  `json:"cursor"`
+	ReceivedAt string `json:"received_at"`
+	Number     string `json:"number"`
+	IssueDate  string `json:"issue_date"`
+	Seller     string `json:"seller"`
+	SellerID   string `json:"seller_id,omitempty"`
+	TotalHT    string `json:"total_ht"`
+	TotalVAT   string `json:"total_vat"`
+	TotalTTC   string `json:"total_ttc"`
+	Currency   string `json:"currency"`
 }
 
 // Factory construit un fournisseur depuis une source de configuration (le .env

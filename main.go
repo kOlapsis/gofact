@@ -58,6 +58,18 @@ func main() {
 		case "install":
 			runInstall(os.Args[2:])
 			return
+		case "sync":
+			runSync(os.Args[2:])
+			return
+		case "export":
+			runExport(os.Args[2:])
+			return
+		case "paid":
+			runPaid(os.Args[2:])
+			return
+		case "schedule":
+			runSchedule(os.Args[2:])
+			return
 		case "version":
 			fmt.Println("gofact", version)
 			return
@@ -79,6 +91,10 @@ Commandes :
   gofact org init|list|show|set-counter
                                gère les dossiers d'organisation et la numérotation
   gofact send -pdf <fichier>   dépose un Factur-X existant sur votre plateforme agréée
+  gofact paid -number <n°>     signale à la plateforme l'encaissement d'une facture
+  gofact sync                  récupère les factures reçues et met à jour l'export comptable
+  gofact schedule              lance gofact sync à intervalle régulier
+  gofact export -month AAAA-MM exporte les factures émises et reçues du mois
   gofact version               affiche la version
 
 Mode direct, sans IA :

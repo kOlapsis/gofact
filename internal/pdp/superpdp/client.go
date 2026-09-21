@@ -1,5 +1,6 @@
 // Package superpdp est un client minimal de la PDP SuperPDP (superpdp.tech) :
-// authentification OAuth2 (client credentials) et dépôt d'une facture Factur-X.
+// authentification OAuth2 (client credentials), dépôt, suivi et encaissement
+// des factures émises, récupération des factures reçues.
 package superpdp
 
 import (
@@ -169,21 +170,9 @@ func (c *Client) SendPDF(ctx context.Context, pdfPath string) (*Invoice, error) 
 	if err != nil {
 		return nil, fmt.Errorf("superpdp: lecture PDF: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.Base+"/v1.beta/invoices", bytes.NewReader(pdf))
+	body, err := c.do(ctx, http.MethodPost, "/v1.beta/invoices", "application/pdf", bytes.NewReader(pdf))
 	if err != nil {
-		return nil, fmt.Errorf("superpdp: requête dépôt: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Content-Type", "application/pdf")
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("superpdp: appel dépôt: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, decodeError(resp.StatusCode, body)
+		return nil, err
 	}
 	var inv Invoice
 	if err := json.Unmarshal(body, &inv); err != nil {
@@ -194,26 +183,141 @@ func (c *Client) SendPDF(ctx context.Context, pdfPath string) (*Invoice, error) 
 
 // GetInvoice récupère une facture et ses statuts (suivi du cycle de vie).
 func (c *Client) GetInvoice(ctx context.Context, id int64) (*Invoice, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		fmt.Sprintf("%s/v1.beta/invoices/%d", c.cfg.Base, id), nil)
+	body, err := c.do(ctx, http.MethodGet, fmt.Sprintf("/v1.beta/invoices/%d", id), "", nil)
 	if err != nil {
-		return nil, fmt.Errorf("superpdp: requête statut: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("superpdp: appel statut: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, decodeError(resp.StatusCode, body)
+		return nil, err
 	}
 	var inv Invoice
 	if err := json.Unmarshal(body, &inv); err != nil {
 		return nil, fmt.Errorf("superpdp: réponse illisible: %s", strings.TrimSpace(string(body)))
 	}
 	return &inv, nil
+}
+
+// GetInvoiceFile télécharge une facture dans le format demandé (factur-x, cii, ubl, original).
+func (c *Client) GetInvoiceFile(ctx context.Context, id int64, format string) ([]byte, error) {
+	return c.do(ctx, http.MethodGet,
+		fmt.Sprintf("/v1.beta/invoices/%d?format=%s", id, url.QueryEscape(format)), "", nil)
+}
+
+// Overview est une facture de la liste, avec son contenu EN 16931 résumé.
+type Overview struct {
+	ID        int64     `json:"id"`
+	Direction string    `json:"direction"`
+	CreatedAt string    `json:"created_at"`
+	EN        ENInvoice `json:"en_invoice"`
+}
+
+// ENInvoice est la partie du contenu EN 16931 exploitée par gofact.
+type ENInvoice struct {
+	Number       string `json:"number"`
+	IssueDate    string `json:"issue_date"`
+	CurrencyCode string `json:"currency_code"`
+	Seller       struct {
+		Name  string `json:"name"`
+		Legal struct {
+			Value string `json:"value"`
+		} `json:"legal_registration_identifier"`
+	} `json:"seller"`
+	Totals struct {
+		WithoutVAT Amount `json:"total_without_vat"`
+		VAT        Amount `json:"total_vat_amount"`
+		WithVAT    Amount `json:"total_with_vat"`
+	} `json:"totals"`
+}
+
+// Amount est un montant décimal que l'API sert tantôt en chaîne, tantôt en
+// objet {value, currency_code}.
+type Amount string
+
+func (a *Amount) UnmarshalJSON(b []byte) error {
+	var s string
+	if json.Unmarshal(b, &s) == nil {
+		*a = Amount(s)
+		return nil
+	}
+	var o struct {
+		Value json.RawMessage `json:"value"`
+	}
+	if json.Unmarshal(b, &o) == nil && len(o.Value) > 0 {
+		*a = Amount(strings.Trim(string(o.Value), `"`))
+	}
+	return nil
+}
+
+// ListInvoices renvoie, toutes pages comprises, les factures d'un sens ("in" ou "out") d'id supérieur à afterID.
+func (c *Client) ListInvoices(ctx context.Context, direction string, afterID int64) ([]Overview, error) {
+	var out []Overview
+	for {
+		q := url.Values{
+			"direction":         {direction},
+			"order":             {"asc"},
+			"limit":             {"1000"},
+			"starting_after_id": {fmt.Sprint(afterID)},
+			"expand[]":          {"en_invoice", "en_invoice.seller"},
+		}
+		body, err := c.do(ctx, http.MethodGet, "/v1.beta/invoices?"+q.Encode(), "", nil)
+		if err != nil {
+			return nil, err
+		}
+		var page struct {
+			Data     []Overview `json:"data"`
+			HasAfter bool       `json:"has_after"`
+		}
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, fmt.Errorf("superpdp: liste illisible: %s", strings.TrimSpace(string(body)))
+		}
+		out = append(out, page.Data...)
+		if !page.HasAfter || len(page.Data) == 0 {
+			return out, nil
+		}
+		afterID = page.Data[len(page.Data)-1].ID
+	}
+}
+
+// ReportedData est une donnée jointe à un événement de cycle de vie (MDG-43).
+type ReportedData struct {
+	TypeCode     string `json:"type_code"`
+	Amount       string `json:"amount,omitempty"`
+	CurrencyCode string `json:"currency_code,omitempty"`
+	Date         string `json:"date,omitempty"`
+	ValuePercent string `json:"value_percent,omitempty"`
+}
+
+// PostInvoiceEvent ajoute un statut au cycle de vie d'une facture (fr:212 « Encaissée »…).
+func (c *Client) PostInvoiceEvent(ctx context.Context, id int64, status string, data []ReportedData) error {
+	payload := map[string]any{"invoice_id": id, "status_code": status}
+	if len(data) > 0 {
+		payload["details"] = []map[string]any{{"reported_data": data}}
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, err = c.do(ctx, http.MethodPost, "/v1.beta/invoice_events", "application/json", bytes.NewReader(raw))
+	return err
+}
+
+// do exécute un appel authentifié et renvoie le corps d'une réponse 2xx.
+func (c *Client) do(ctx context.Context, method, path, contentType string, body io.Reader) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.cfg.Base+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("superpdp: requête %s: %w", path, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("superpdp: appel %s: %w", path, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, decodeError(resp.StatusCode, raw)
+	}
+	return raw, nil
 }
 
 func decodeError(status int, body []byte) error {

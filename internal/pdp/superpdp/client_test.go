@@ -89,3 +89,16 @@ func TestUnexpectedEventShapesAreTolerated(t *testing.T) {
 		}
 	}
 }
+
+func TestAmountAcceptsStringAndObject(t *testing.T) {
+	var totals struct {
+		HT  Amount `json:"total_without_vat"`
+		VAT Amount `json:"total_vat_amount"`
+	}
+	if err := json.Unmarshal([]byte(`{"total_without_vat":"590.00","total_vat_amount":{"value":"118.00","currency_code":"EUR"}}`), &totals); err != nil {
+		t.Fatal(err)
+	}
+	if totals.HT != "590.00" || totals.VAT != "118.00" {
+		t.Errorf("montants décodés : %q, %q", totals.HT, totals.VAT)
+	}
+}
