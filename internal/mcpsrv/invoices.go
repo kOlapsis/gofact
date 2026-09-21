@@ -50,8 +50,9 @@ func addInvoiceTools(s *mcp.Server) {
 		Invoices []map[string]any `json:"invoices"`
 	}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_invoices",
-		Description: "Factures inscrites au registre de l'organisation, de la plus récente à la plus ancienne.",
+		Name: "list_invoices",
+		Description: "Factures inscrites au registre de l'organisation, de la plus récente à la plus ancienne, " +
+			"avec la date d'encaissement (encaissee_le) quand il a été signalé.",
 		Annotations: readOnly("Lister les factures"),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in listIn) (*mcp.CallToolResult, listOut, error) {
 		o, err := resolveOrg(in.Org)
@@ -59,6 +60,10 @@ func addInvoiceTools(s *mcp.Server) {
 			return nil, listOut{}, err
 		}
 		all, err := o.Invoices()
+		if err != nil {
+			return nil, listOut{}, err
+		}
+		payments, err := o.Payments()
 		if err != nil {
 			return nil, listOut{}, err
 		}
@@ -73,6 +78,9 @@ func addInvoiceTools(s *mcp.Server) {
 			}
 			if in.Client != "" && !strings.Contains(strings.ToLower(str(inv["client"])), strings.ToLower(in.Client)) {
 				continue
+			}
+			if p, ok := payments[str(inv["numero"])]; ok {
+				inv["encaissee_le"] = p.Date
 			}
 			out.Invoices = append(out.Invoices, inv)
 			if len(out.Invoices) >= limit {

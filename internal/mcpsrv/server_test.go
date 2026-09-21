@@ -115,12 +115,14 @@ func TestToolAnnotations(t *testing.T) {
 	for _, name := range []string{"list_organizations", "get_organization", "get_invoice_template",
 		"search_client", "find_routing_address", "preview_next_number", "preview_invoice",
 		"list_invoices", "create_invoice", "send_invoice", "get_invoice_status",
-		"init_organization", "initialize_numbering"} {
+		"init_organization", "initialize_numbering", "report_payment", "list_received_invoices",
+		"export_invoices"} {
 		if byName[name] == nil {
 			t.Errorf("outil %s absent", name)
 		}
 	}
-	// Seul send_invoice est destructif ; les lectures sont annoncées comme telles.
+	// Seuls les écrits vers la PDP sont destructifs ; les lectures sont annoncées comme telles.
+	destructive := map[string]bool{"send_invoice": true, "report_payment": true}
 	for name, tool := range byName {
 		ann := tool.Annotations
 		if ann == nil {
@@ -128,11 +130,8 @@ func TestToolAnnotations(t *testing.T) {
 			continue
 		}
 		isDestructive := ann.DestructiveHint != nil && *ann.DestructiveHint
-		if name == "send_invoice" && !isDestructive {
-			t.Error("send_invoice doit être destructif")
-		}
-		if name != "send_invoice" && isDestructive {
-			t.Errorf("%s ne doit pas être destructif", name)
+		if destructive[name] != isDestructive {
+			t.Errorf("%s : destructif = %v, attendu %v", name, isDestructive, destructive[name])
 		}
 	}
 }

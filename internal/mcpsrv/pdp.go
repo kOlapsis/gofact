@@ -1,9 +1,8 @@
 package mcpsrv
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -128,6 +127,105 @@ func addPDPTools(s *mcp.Server) {
 		out.Rejected, out.Reasons = pdp.Rejection(events)
 		return nil, out, nil
 	})
+
+	type paidIn struct {
+		orgParam
+		Number  string `json:"number" jsonschema:"numéro de la facture émise qui a été encaissée"`
+		Date    string `json:"date,omitempty" jsonschema:"date d'encaissement AAAA-MM-JJ ; défaut : aujourd'hui"`
+		Amount  string `json:"amount,omitempty" jsonschema:"montant encaissé en décimal (ex. 1200.00), uniquement pour un paiement partiel ; omis = total de la facture"`
+		Confirm bool   `json:"confirm" jsonschema:"doit valoir true, après confirmation EXPLICITE de l'utilisateur — l'encaissement est déclaré à l'administration"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "report_payment",
+		Description: "Signale à la PDP l'encaissement d'une facture émise et déjà déposée (statut fr:212 « Encaissée »). " +
+			"Ce statut alimente l'e-reporting de paiement transmis à l'administration : ne l'appeler qu'une fois le " +
+			"règlement réellement reçu, après accord explicite de l'utilisateur, avec confirm=true. Pour une facture " +
+			"payée à l'émission, l'appeler juste après send_invoice.",
+		Annotations: &mcp.ToolAnnotations{Title: "Signaler un encaissement", ReadOnlyHint: false,
+			DestructiveHint: boolPtr(true), OpenWorldHint: boolPtr(true)},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in paidIn) (*mcp.CallToolResult, workspace.PaymentReport, error) {
+		if !in.Confirm {
+			return nil, workspace.PaymentReport{}, fmt.Errorf("signalement refusé : confirm doit valoir true. Demander à "+
+				"l'utilisateur une confirmation explicite (« signaler l'encaissement de la facture %s ? ») "+
+				"avant de rappeler cet outil", in.Number)
+		}
+		o, err := resolveOrg(in.Org)
+		if err != nil {
+			return nil, workspace.PaymentReport{}, err
+		}
+		provider, err := pdp.Open(o.Lookup)
+		if err != nil {
+			return nil, workspace.PaymentReport{}, err
+		}
+		out, err := o.ReportPayment(ctx, provider, in.Number, in.Date, in.Amount)
+		if errors.Is(err, workspace.ErrNotSent) {
+			err = fmt.Errorf("%w : la déposer d'abord avec send_invoice", err)
+		}
+		return nil, out, err
+	})
+
+	type receivedIn struct {
+		orgParam
+		Month   string `json:"month,omitempty" jsonschema:"mois d'émission AAAA-MM ; omis = toutes"`
+		Refresh bool   `json:"refresh,omitempty" jsonschema:"interroge d'abord la PDP pour récupérer les factures arrivées depuis le dernier passage"`
+	}
+	type receivedOut struct {
+		New      int                  `json:"new"`
+		Invoices []workspace.Received `json:"invoices"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_received_invoices",
+		Description: "Factures fournisseurs reçues via la PDP, de la plus récente à la plus ancienne, avec le chemin " +
+			"de leur PDF dans le dossier de l'organisation. refresh=true récupère d'abord les nouvelles arrivées " +
+			"(ce que fait aussi la commande planifiée « gofact sync »).",
+		Annotations: &mcp.ToolAnnotations{Title: "Factures reçues", ReadOnlyHint: false,
+			DestructiveHint: boolPtr(false), OpenWorldHint: boolPtr(true)},
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in receivedIn) (*mcp.CallToolResult, receivedOut, error) {
+		o, err := resolveOrg(in.Org)
+		if err != nil {
+			return nil, receivedOut{}, err
+		}
+		var out receivedOut
+		if in.Refresh {
+			provider, err := pdp.Open(o.Lookup)
+			if err != nil {
+				return nil, receivedOut{}, err
+			}
+			fresh, err := o.SyncReceived(ctx, provider)
+			out.New = len(fresh)
+			if err != nil {
+				return nil, out, err
+			}
+		}
+		if out.Invoices, err = o.ReceivedInvoices(in.Month); err != nil {
+			return nil, out, err
+		}
+		return nil, out, nil
+	})
+
+	type exportIn struct {
+		orgParam
+		Month string `json:"month" jsonschema:"mois à exporter, AAAA-MM"`
+		To    string `json:"to,omitempty" jsonschema:"dossier de destination ; défaut : GOFACT_EXPORT_DIR de l'organisation"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "export_invoices",
+		Description: "Exporte pour le comptable les factures émises et reçues d'un mois : PDF dans emises/ et recues/, " +
+			"plus recapitulatif.csv (séparateur ;). Les factures reçues sont celles déjà récupérées : appeler " +
+			"list_received_invoices avec refresh=true avant pour inclure les dernières arrivées.",
+		Annotations: writes("Export comptable"),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in exportIn) (*mcp.CallToolResult, workspace.ExportResult, error) {
+		o, err := resolveOrg(in.Org)
+		if err != nil {
+			return nil, workspace.ExportResult{}, err
+		}
+		dest := in.To
+		if dest == "" {
+			dest = o.Lookup(workspace.EnvExportDir)
+		}
+		res, err := o.Export(in.Month, dest)
+		return nil, res, err
+	})
 }
 
 // firstStatus lit une première fois le cycle de vie d'un dépôt, après le délai
@@ -237,31 +335,11 @@ func invoiceSpec(o *workspace.Org, number string) (facturx.Spec, string, error) 
 	return spec, path, nil
 }
 
-// sentReference retrouve, dans le journal, la référence et le fournisseur du
-// dernier dépôt d'une facture.
+// sentReference retrouve la référence et le fournisseur du dernier dépôt d'une facture.
 func sentReference(o *workspace.Org, number string) (ref, provider string, err error) {
-	f, err := os.Open(filepath.Join(o.Path, workspace.JournalFile))
+	ref, provider, err = o.SentReference(number)
 	if err != nil {
-		return "", "", fmt.Errorf("aucun dépôt PDP tracé pour cette organisation")
-	}
-	defer func() { _ = f.Close() }()
-
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		var line struct {
-			Event string `json:"event"`
-			Data  struct {
-				Numero    string `json:"numero"`
-				Provider  string `json:"provider"`
-				Reference string `json:"reference"`
-			} `json:"data"`
-		}
-		if json.Unmarshal(sc.Bytes(), &line) != nil {
-			continue
-		}
-		if line.Event == "pdp_sent" && line.Data.Numero == number {
-			ref, provider = line.Data.Reference, line.Data.Provider // le plus récent gagne
-		}
+		return "", "", err
 	}
 	if ref == "" {
 		return "", "", fmt.Errorf("la facture %s n'a pas été déposée sur la PDP (aucune trace au journal). "+
