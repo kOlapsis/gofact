@@ -60,6 +60,7 @@ plugins:
           - comprendre/choisir-plateforme-agreee.md: Choisir sa plateforme agréée quand on facture peu
           - comprendre/anatomie-facturx.md: Ce qu'il y a vraiment dans un fichier Factur-X
           - comprendre/archiver-dix-ans.md: Ce que la loi demande et ce que produit gofact
+          - comprendre/changer-plateforme-historique.md: Portabilité, adressage et historique quand on change de PA
         Conformité et transmission:
           - conformite.md: Factur-X, PDF/A-3, EN 16931 et ce que gofact vérifie
           - pdp.md: Déposer ses factures sur une plateforme
@@ -79,6 +80,7 @@ nav:
       - Choisir sa plateforme agréée: comprendre/choisir-plateforme-agreee.md
       - Anatomie d'un Factur-X: comprendre/anatomie-facturx.md
       - Archiver dix ans: comprendre/archiver-dix-ans.md
+      - Changer de plateforme agréée: comprendre/changer-plateforme-historique.md
   - Conformité: conformite.md
   - Envoi PDP: pdp.md
   - FAQ & dépannage: faq.md
